@@ -4523,6 +4523,7 @@ pub(crate) mod rules {
     pub enum Do {
         #[default]
         Move,
+        Forward,
         Categorize,
         Flag,
         MarkRead,
@@ -4531,11 +4532,12 @@ pub(crate) mod rules {
     }
 
     impl Do {
-        const ALL: [Do; 6] = [Do::Move, Do::Categorize, Do::Flag, Do::MarkRead, Do::SetImportance, Do::Delete];
+        const ALL: [Do; 7] = [Do::Move, Do::Forward, Do::Categorize, Do::Flag, Do::MarkRead, Do::SetImportance, Do::Delete];
 
         fn label(self) -> &'static str {
             match self {
                 Do::Move => "Move to folder",
+                Do::Forward => "Forward, then move",
                 Do::Categorize => "Categorize",
                 Do::Flag => "Flag",
                 Do::MarkRead => "Mark as read",
@@ -4552,6 +4554,7 @@ pub(crate) mod rules {
         kind: Do,
         folder: Id,
         category: String,
+        recipients: String,
         importance: Importance,
     }
 
@@ -4657,6 +4660,9 @@ pub(crate) mod rules {
                     format!("move it to {} - {who}", crate::nav::folder_path(mb, *f))
                 }
                 Action::MoveTo(_) => "move it to a folder that is gone".to_string(),
+                Action::ForwardThenMove { to, folder } if mb.folder(*folder).is_some() => {
+                    format!("forward it to {to}, then move it to {}", crate::nav::folder_path(mb, *folder))
+                }
                 other => other.describe(),
             })
             .collect::<Vec<_>>()
@@ -4814,6 +4820,7 @@ pub(crate) mod rules {
         then_run: bool,
         /// The folders a move can go to: id and path.
         folders: Vec<(Id, String)>,
+        forward_folders: Vec<(Id, String)>,
         /// The folder and category a fresh action starts with.
         first_folder: Id,
         first_category: String,
@@ -4866,6 +4873,8 @@ pub(crate) mod rules {
         fn choose(&mut self, mb: &Mailbox, account: Id) {
             self.account = account;
             self.folders = move_choices(mb, account);
+            self.forward_folders =
+                self.folders.iter().filter(|(id, _)| mailcraft_engine::cmd::rules::forward_destination(mb, account, *id)).cloned().collect();
             self.first_folder = mb.folder_of_kind(account, FolderKind::Archive).or(self.folders.first().map(|f| f.0)).unwrap_or(0);
             let (folders, first) = (&self.folders, self.first_folder);
             for a in &mut self.acts {
@@ -4892,7 +4901,13 @@ pub(crate) mod rules {
         }
 
         fn fresh_action(&self) -> Act {
-            Act { kind: Do::Move, folder: self.first_folder, category: self.first_category.clone(), importance: Importance::High }
+            Act {
+                kind: Do::Move,
+                folder: self.first_folder,
+                category: self.first_category.clone(),
+                recipients: String::new(),
+                importance: Importance::High,
+            }
         }
 
         /// The command Add runs, with its params.
@@ -4911,6 +4926,7 @@ pub(crate) mod rules {
                 .iter()
                 .map(|a| match a.kind {
                     Do::Move => json!({"type": "moveTo", "value": a.folder}),
+                    Do::Forward => json!({"type": "forwardThenMove", "value": {"to": a.recipients, "folder": a.folder}}),
                     Do::Categorize => json!({"type": "categorize", "value": a.category}),
                     Do::Flag => json!({"type": "flag"}),
                     Do::MarkRead => json!({"type": "markRead"}),
@@ -4921,11 +4937,15 @@ pub(crate) mod rules {
             let mut params = json!({"name": self.name, "conditions": conditions, "actions": actions, "stop": self.stop});
             if self.account != 0 {
                 params["account"] = json!(self.account);
-                if !self.server {
+                if !self.server || self.has_forward() {
                     params["server"] = json!(false);
                 }
             }
             ("rules.add", params)
+        }
+
+        fn has_forward(&self) -> bool {
+            self.acts.iter().any(|a| a.kind == Do::Forward)
         }
 
         /// Whether Add can run: the rule has a name, every text condition a text, every move a
@@ -4934,6 +4954,11 @@ pub(crate) mod rules {
             let conds = self.conds.iter().all(|c| !c.kind.takes_text() || !c.text.trim().is_empty());
             let acts = self.acts.iter().all(|a| match a.kind {
                 Do::Move => a.folder != 0,
+                Do::Forward => {
+                    self.acts.len() == 1
+                        && self.forward_folders.iter().any(|(id, _)| *id == a.folder)
+                        && mailcraft_model::Address::new("", a.recipients.trim()).is_valid()
+                }
                 Do::Categorize => !a.category.trim().is_empty(),
                 _ => true,
             });
@@ -5069,7 +5094,8 @@ pub(crate) mod rules {
                             // Then the new rule alone over the mail already in the folder, as the
                             // menu that opened it says and Outlook offers.
                             let made = v.get("id").and_then(Value::as_u64);
-                            if let Some(((folder, _), rule)) = self.run_in.take().filter(|_| self.then_run).zip(made) {
+                            let then_run = self.then_run && !self.has_forward();
+                            if let Some(((folder, _), rule)) = self.run_in.take().filter(|_| then_run).zip(made) {
                                 match app.execute("rules.run", json!({"folder": folder, "id": rule})) {
                                     Ok(v) => self.ran = v.get("matched").and_then(Value::as_u64),
                                     Err(e) => self.error = e,
@@ -5143,26 +5169,40 @@ pub(crate) mod rules {
             let mut drop_act = None;
             let many = self.acts.len() > 1;
             let folders = &self.folders;
+            let forward_folders = &self.forward_folders;
+            let can_forward = !many && !forward_folders.is_empty();
             for (i, a) in self.acts.iter_mut().enumerate() {
                 row(ui, if i == 0 { tl!("Do") } else { tl!("and") }, |ui| {
                     egui::ComboBox::from_id_salt(("do", i)).width(150.0).selected_text(tl!(a.kind.label())).show_ui(ui, |ui| {
                         for kind in Do::ALL {
+                            if kind == Do::Forward && !can_forward {
+                                continue;
+                            }
                             if ui.selectable_label(kind == a.kind, tl!(kind.label())).clicked() {
                                 a.kind = kind;
+                                if kind == Do::Forward && !forward_folders.iter().any(|(id, _)| *id == a.folder) {
+                                    a.folder = forward_folders.first().map_or(0, |(id, _)| *id);
+                                }
                             }
                         }
                     });
                     let width = (ui.available_width() - if many { 30.0 } else { 0.0 }).max(60.0);
                     match a.kind {
-                        Do::Move => {
-                            let current =
-                                folders.iter().find(|f| f.0 == a.folder).map_or_else(|| tl!("Choose a folder").to_string(), |f| shown(&f.1, 200));
-                            egui::ComboBox::from_id_salt(("do_folder", i)).width(width).selected_text(current).truncate().show_ui(ui, |ui| {
-                                for (id, path) in folders {
-                                    if ui.selectable_label(*id == a.folder, shown(path, 200)).clicked() {
-                                        a.folder = *id;
-                                    }
+                        Do::Move | Do::Forward => {
+                            let folders = if a.kind == Do::Forward { forward_folders } else { folders };
+                            ui.vertical(|ui| {
+                                if a.kind == Do::Forward {
+                                    pass.text(ui, ("do_forward", i), &mut a.recipients, width, tl!("Email address"));
                                 }
+                                let current =
+                                    folders.iter().find(|f| f.0 == a.folder).map_or_else(|| tl!("Choose a folder").to_string(), |f| shown(&f.1, 200));
+                                egui::ComboBox::from_id_salt(("do_folder", i)).width(width).selected_text(current).truncate().show_ui(ui, |ui| {
+                                    for (id, path) in folders {
+                                        if ui.selectable_label(*id == a.folder, shown(path, 200)).clicked() {
+                                            a.folder = *id;
+                                        }
+                                    }
+                                });
                             });
                         }
                         Do::Categorize => {
@@ -5188,8 +5228,9 @@ pub(crate) mod rules {
             }
             let mut add = false;
             let ready = self.ready();
+            let can_add_action = self.acts.len() < MAX_PARTS && !self.has_forward();
             row(ui, "", |ui| {
-                if ui.add_enabled(self.acts.len() < MAX_PARTS, egui::Button::new(tl!("+ action"))).clicked() {
+                if ui.add_enabled(can_add_action, egui::Button::new(tl!("+ action"))).clicked() {
                     let fresh = self.fresh_action();
                     self.acts.push(fresh);
                 }
@@ -5234,9 +5275,15 @@ pub(crate) mod rules {
                     ui.label(egui::RichText::new(said).color(if warn { t.orange } else { t.text_dim }).size(11.5));
                 });
             }
+            if self.has_forward() {
+                tall_row(ui, "", |ui| {
+                    ui.label(egui::RichText::new(tl!("This forwarding rule starts disabled.")).color(t.text_dim).size(11.5));
+                });
+            }
             if let Some(label) = self
                 .run_in
                 .as_ref()
+                .filter(|_| !self.has_forward())
                 .map(|(_, path)| crate::i18n::fmt(tl!("Then run it over the mail already in {folder}"), &[("folder", &shown(path, 80))]))
             {
                 row(ui, "", |ui| {

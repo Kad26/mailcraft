@@ -441,6 +441,9 @@ pub struct Message {
     /// other message, and once it is sent.
     #[serde(skip_serializing_if = "Option::is_none", deserialize_with = "crate::sync::lenient")]
     pub answers: Option<Answers>,
+    /// Local metadata for an automatic IMAP forward waiting for SMTP acknowledgement.
+    #[serde(skip_serializing_if = "Option::is_none", deserialize_with = "crate::sync::lenient")]
+    pub forward_move: Option<crate::rule::ForwardMove>,
     /// Where the body is while it isn't in memory ([`KeptBody`]); `None` once it is (or when it
     /// always was). Not written: see [`Attachment::kept`].
     #[serde(skip)]

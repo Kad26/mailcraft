@@ -255,6 +255,18 @@ fn a_rule_the_server_cannot_keep_is_not_sent() {
     let mut two = news_rule();
     two.actions.extend([Action::SetImportance(Importance::High), Action::SetImportance(Importance::Low)]);
     assert!(rule_body(&two).is_err());
+    for condition in [
+        Condition::FromAddressIs("sender@example.org".into()),
+        Condition::SubjectContains("SPACE ".into()),
+        Condition::SubjectContainsAny(vec!["FIRST".into(), "SECOND".into()]),
+    ] {
+        let mut local = news_rule();
+        local.conditions = vec![condition];
+        assert!(rule_body(&local).is_err());
+        local.tidy();
+        assert!(!local.unknown.is_empty());
+        assert!(rule_body(&local).is_err());
+    }
 
     let s = state(Vec::new());
     let server = serve(&s);

@@ -236,3 +236,110 @@ fn a_partial_graph_run_after_a_caught_up_one_leaves_the_inbox_watched() {
     s.mailbox.add_message(Message { folder: inbox, subject: "next run".into(), ..Default::default() }).unwrap();
     assert_eq!(subjects(&arrivals(&s.mailbox, &before)), ["next run"]);
 }
+
+fn filing_rule(s: &mut Session, account: Id, enabled: bool) -> (Id, Id) {
+    let filing = s.mailbox.add_folder(account, None, "Filing").unwrap();
+    s.mailbox.folder_mut(filing).unwrap().remote = "Filing".to_string();
+    let id = s
+        .run(
+            "rules.add",
+            &json!({
+                "name": "Forward invoices and file",
+                "account": account,
+                "server": false,
+                "enabled": enabled,
+                "conditions": [{"type": "subjectContains", "value": "Invoice"}],
+                "actions": [{"type": "forwardThenMove", "value": {"to": "filing@example.org", "folder": filing}}]
+            }),
+        )
+        .unwrap()["id"]
+        .as_u64()
+        .unwrap();
+    (filing, id)
+}
+
+#[test]
+fn rule_forward_is_queued_once_and_filed_only_after_smtp_accepts_it() {
+    use crate::cmd::account::sync_request;
+
+    let (mut s, account, inbox) = session();
+    let (filing, _) = filing_rule(&mut s, account, true);
+    let initial = FolderDelta { complete: true, ..inbox_delta(inbox, vec![message(1, "Sender", "Invoice already there")]) };
+    apply(&mut s, account, vec![initial]);
+    s.run(
+        "rules.add",
+        &json!({
+            "name": "Flag invoices",
+            "account": account,
+            "server": false,
+            "conditions": [{"type": "subjectContains", "value": "Invoice"}],
+            "actions": [{"type": "flag"}]
+        }),
+    )
+    .unwrap();
+    let mut incoming = message(2, "Sender", "Invoice 4");
+    incoming.message_id = "invoice-4@sender.example".into();
+    // Ordinary machine-generated invoices are eligible too.
+    incoming.headers.push(("Auto-Submitted".into(), "auto-generated".into()));
+    incoming.attachments.push(mailcraft_model::Attachment::new("invoice.pdf", "application/pdf", b"%PDF-invoice".to_vec()));
+    apply(&mut s, account, vec![inbox_delta(inbox, vec![incoming.clone()])]);
+    apply(&mut s, account, vec![inbox_delta(inbox, vec![incoming])]);
+    let source = s.mailbox.messages_in(inbox).find(|m| m.uid == 2).unwrap().id;
+    assert_eq!(s.mailbox.message(source).unwrap().flag, mailcraft_model::FlagStatus::Flagged);
+
+    let request = sync_request(&s, account).unwrap();
+    let [queued] = request.outbox.as_slice() else { panic!("expected one queued forward") };
+    assert_eq!(queued.to[0].email, "filing@example.org");
+    assert_eq!(queued.attachments[0].data.as_slice(), b"%PDF-invoice");
+    let wire = mailcraft_mime_model::write(queued, &mailcraft_mime_model::WriteOptions::default());
+    let parsed = mailcraft_mime_model::parse(&wire);
+    assert_eq!(parsed.header("X-Loop"), Some("mailcraft-rule-forward"));
+    assert!(parsed.all_headers().iter().any(|(key, value)| key.eq_ignore_ascii_case("Auto-Submitted") && value == "auto-generated"));
+    let id = queued.id;
+
+    let run = |s: &mut Session, result: SyncResult| {
+        s.run("sync.apply", &json!({"result": result})).unwrap();
+    };
+    run(&mut s, SyncResult { account, errors: vec!["SMTP temporary failure".into()], ..Default::default() });
+    assert_eq!(s.mailbox.message(source).unwrap().folder, inbox);
+    assert_eq!(sync_request(&s, account).unwrap().outbox[0].id, id);
+
+    run(&mut s, SyncResult { account, sent: vec![id], ..Default::default() });
+    run(&mut s, SyncResult { account, sent: vec![id], ..Default::default() });
+    assert_eq!(s.mailbox.message(source).unwrap().folder, filing);
+    assert!(s.mailbox.message(source).unwrap().forwarded);
+    assert!(sync_request(&s, account).unwrap().outbox.is_empty());
+}
+
+#[test]
+fn rule_forward_skips_history_loops_and_disabled_rules() {
+    use crate::cmd::account::sync_request;
+
+    let (mut s, account, inbox) = session();
+    let (_, rule) = filing_rule(&mut s, account, true);
+    let initial = FolderDelta { complete: true, ..inbox_delta(inbox, vec![message(1, "Sender", "Invoice already there")]) };
+    apply(&mut s, account, vec![initial]);
+    assert!(sync_request(&s, account).unwrap().outbox.is_empty());
+    assert!(s.run("rules.run", &json!({"id": rule, "folder": inbox})).is_err());
+
+    let mut loopback = message(2, "Sender", "Invoice previously forwarded");
+    loopback.headers.push(("X-Loop".into(), "mailcraft-rule-forward".into()));
+    apply(&mut s, account, vec![inbox_delta(inbox, vec![loopback])]);
+    assert!(sync_request(&s, account).unwrap().outbox.is_empty());
+
+    apply(&mut s, account, vec![inbox_delta(inbox, vec![message(3, "Sender", "Invoice queued")])]);
+    let request = sync_request(&s, account).unwrap();
+    let [queued] = request.outbox.as_slice() else { panic!("expected one queued forward") };
+    let queue_id = queued.id;
+    let uncertain = SyncResult { account, unsure: vec![queue_id], ..Default::default() };
+    s.run("sync.apply", &json!({"result": uncertain})).unwrap();
+    assert!(sync_request(&s, account).unwrap().outbox.is_empty(), "an uncertain send is held instead of retried");
+    assert!(!s.mailbox.message(queue_id).unwrap().held.is_empty());
+    // Resolve the synthetic hold before independently verifying the rule switch.
+    s.mailbox.message_mut(queue_id).unwrap().held.clear();
+    s.run("rules.enable", &json!({"id": rule, "value": false})).unwrap();
+    assert!(sync_request(&s, account).unwrap().outbox.is_empty());
+    apply(&mut s, account, vec![inbox_delta(inbox, vec![message(4, "Sender", "Invoice received while disabled")])]);
+    assert!(sync_request(&s, account).unwrap().outbox.is_empty());
+    assert_eq!(s.mailbox.messages_in(inbox).count(), 4);
+}

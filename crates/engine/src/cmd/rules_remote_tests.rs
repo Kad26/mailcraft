@@ -44,6 +44,90 @@ fn add(s: &mut Session, account: Id, name: &str, conditions: Value, actions: Val
     made["id"].as_u64().unwrap()
 }
 
+#[test]
+fn imported_subject_alternatives_preserve_spaces_and_require_the_exact_sender() {
+    let (mut s, account, _, _) = session();
+    let conditions = json!([
+        {"type":"fromAddressIs","value":"sender@example.org"},
+        {"type":"subjectContainsAny","value":["BACKUP SERVER ","Alternate event"]}
+    ]);
+    let input = json!({
+        "account": account, "name": "Imported exact match", "conditions": conditions,
+        "actions": [{"type":"markRead"}], "stop": true
+    });
+    let made = run(&mut s, "rules.add", input.clone());
+    assert_eq!(made["keep"], "here");
+    let id = made["id"].as_u64().unwrap();
+    let rule = rule(&s, id);
+    assert_eq!(serde_json::to_value(&rule.conditions).unwrap(), conditions);
+    assert_eq!(rule.conditions, serde_json::from_value::<Vec<Condition>>(conditions).unwrap());
+    let matches = |sender: &str, subject: &str| {
+        let m = Message { from: Address::new("sender@example.org", sender), subject: subject.to_string(), ..Default::default() };
+        rule.matches(&m)
+    };
+    assert!(matches("SENDER@example.org", "backup server 2026"));
+    assert!(matches("sender@example.org", "An alternate EVENT arrived"));
+    assert!(!matches("sender@example.org", "Backup Server"));
+    assert!(!matches("sender@example.org", "Backup Server2"));
+    assert!(!matches("sender@example.org.other.test", "backup server 2026"));
+    assert!(!matches("other@example.org", "Alternate event"));
+
+    // Even on a Graph account, a literal rule must not turn into a broader server-side match.
+    let mut forced = input;
+    forced["server"] = json!(true);
+    assert!(s.run("rules.add", &forced).is_err());
+    assert!(s.run("rules.keepOnServer", &json!({"id": id})).is_err());
+    assert_eq!(s.mailbox.rules.len(), 1);
+}
+
+#[test]
+fn imported_rules_refuse_empty_or_invalid_criteria_without_creating_any() {
+    let (mut s, account, _, _) = session();
+    for conditions in [
+        json!([{"type": "fromAddressIs", "value": "example.org"}]),
+        json!([{"type": "fromAddressIs", "value": "Person <sender@example.org>"}]),
+        json!([{"type": "subjectContainsAny", "value": []}]),
+        json!([{"type": "subjectContainsAny", "value": [" "] }]),
+        json!([{"type": "subjectContainsAny", "value": ["x", false] }]),
+        json!([{"type": "subjectContainsAny", "value": ["x\ny"] }]),
+        json!([{"type": "subjectContainsAny", "value": vec!["x"; 21] }]),
+        json!([{"type": "subjectContainsAny", "value": ["x".repeat(201)] }]),
+    ] {
+        let input = json!({"name":"Invalid", "account":account, "conditions": conditions, "actions":[{"type":"markRead"}]});
+        assert!(s.run("rules.add", &input).is_err(), "{input}");
+    }
+    assert!(s.mailbox.rules.is_empty());
+}
+
+#[test]
+fn a_literal_subject_move_can_be_staged_without_running_on_arrival() {
+    let (mut s, account, _, destination) = session();
+    let inbox = s.mailbox.folder_of_kind(account, FolderKind::Inbox).unwrap();
+    let needle = "Report from BACKUP SERVER ";
+    let mut input = json!({
+        "name": "Imported move", "account": account, "server": false, "enabled": false, "stop": true,
+        "conditions": [{"type": "subjectContains", "value": needle, "literal": true}],
+        "actions": [{"type": "moveTo", "value": destination}]
+    });
+    let made = run(&mut s, "rules.add", input.clone())["id"].as_u64().unwrap();
+    let staged = rule(&s, made);
+    assert!(!staged.enabled);
+    assert_eq!(staged.conditions, vec![Condition::SubjectContains(needle.into())]);
+    let message = |subject: &str| Message { account, folder: inbox, subject: subject.into(), ..Default::default() };
+    let m = s.mailbox.add_message(message("Report from BACKUP SERVER 2026")).unwrap();
+    assert!(s.mailbox.apply_rules(m).is_empty());
+    assert_eq!(s.mailbox.message(m).unwrap().folder, inbox);
+    run(&mut s, "rules.enable", json!({"id": made, "value": true}));
+    for other in ["Report from BACKUP SERVER", "Report from BACKUP SERVER2"] {
+        let id = s.mailbox.add_message(message(other)).unwrap();
+        assert!(s.mailbox.apply_rules(id).is_empty());
+    }
+    assert_eq!(s.mailbox.apply_rules(m), ["Imported move"]);
+    assert_eq!(s.mailbox.message(m).unwrap().folder, destination);
+    input["server"] = json!(true);
+    assert!(s.run("rules.add", &input).is_err());
+}
+
 fn news_rule(s: &mut Session, account: Id, news: Id) -> Id {
     add(s, account, "News", json!([{"type": "fromContains", "value": "digest"}]), json!([{"type": "moveTo", "value": news}]))
 }

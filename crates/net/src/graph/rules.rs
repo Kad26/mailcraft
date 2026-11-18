@@ -260,10 +260,13 @@ pub(super) fn rule_body(rule: &RemoteRule) -> Result<Value, &'static str> {
         let (name, value) = match condition {
             Condition::FromContains(t) => ("senderContains", json!([t])),
             Condition::ToContains(t) => ("recipientContains", json!([t])),
-            Condition::SubjectContains(t) => ("subjectContains", json!([t])),
+            Condition::SubjectContains(t) if !condition.local_only() => ("subjectContains", json!([t])),
             Condition::BodyContains(t) => ("bodyContains", json!([t])),
             Condition::HasAttachment => ("hasAttachments", json!(true)),
             Condition::Importance(i) => ("importance", json!(i.code())),
+            Condition::FromAddressIs(_) | Condition::SubjectContains(_) | Condition::SubjectContainsAny(_) => {
+                return Err("the server doesn't support this condition");
+            }
         };
         if conditions.insert(name.into(), value).is_some() {
             return Err("the server's rules have one condition of each kind");
@@ -291,6 +294,7 @@ pub(super) fn rule_body(rule: &RemoteRule) -> Result<Value, &'static str> {
             }
             Action::Flag => return Err("the server's rules can't flag mail"),
             Action::MoveTo(_) => return Err("a folder to move mail to is named by the server's id"),
+            Action::ForwardThenMove { .. } => return Err("forwarding before filing is a local rule"),
         }
     }
     if !categories.is_empty() {

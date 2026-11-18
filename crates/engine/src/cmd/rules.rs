@@ -9,7 +9,7 @@
 //! run: those of its server first, then those of this computer; Move Up and Move Down move a rule
 //! within its list.
 
-use mailcraft_model::{Action, Condition, Id, Importance, Keep, Mailbox, Rule, RuleGone, clean_name};
+use mailcraft_model::{Action, Condition, Id, Importance, Keep, Mailbox, Rule, RuleGone, clean_name, mailbox_address};
 use serde_json::{Value, json};
 
 use super::{bad, fail, needs_message};
@@ -20,7 +20,7 @@ use mailcraft_model::MAX_RULES;
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         CommandSpec::new("rules.add", "Create Rule", "Home › Move", add).params(
-            r#"{"name": string, "conditions": [{"type": "fromContains"|"toContains"|"subjectContains"|"bodyContains", "value": string} | {"type": "hasAttachment"} | {"type": "importance", "value": "high"|"normal"|"low"}], "actions": [{"type": "moveTo", "value": folder id} | {"type": "categorize", "value": string} | {"type": "flag"} | {"type": "markRead"} | {"type": "setImportance", "value": string} | {"type": "delete"}], "stop"?: bool, "account"?: number (whose arriving mail it is for; without it, every account's, and kept on this computer), "server"?: bool (false keeps it on this computer; true refuses a rule the server can't keep; default: on the server when it can)} — on a Microsoft account the rule is kept on its server when the server can do all of it (it then runs there, whether MailCraft is open or not; the sender's and recipients' words are looked for in their addresses alone, as the server does); answers {"id", "keep": "server"|"here"}"#,
+            r#"{"name": string, "conditions": [{"type": "fromContains"|"toContains"|"subjectContains"|"bodyContains", "value": string} (subjectContains accepts "literal": true to preserve surrounding spaces, with "server": false) | {"type": "fromAddressIs", "value": email} (matches the whole sender address) | {"type": "subjectContainsAny", "value": [string]} (matches any of 1–20 phrases, preserving spaces) | {"type": "hasAttachment"} | {"type": "importance", "value": "high"|"normal"|"low"}], "actions": [{"type": "moveTo", "value": folder id} | {"type": "forwardThenMove", "value": {"to": email, "folder": folder id}} (sole action, local IMAP, disabled by default) | {"type": "categorize", "value": string} | {"type": "flag"} | {"type": "markRead"} | {"type": "setImportance", "value": string} | {"type": "delete"}], "stop"?: bool, "enabled"?: bool (default: true), "account"?: number (whose arriving mail it is for; without it, every account's, and kept on this computer), "server"?: bool (false keeps it on this computer; true refuses a rule the server can't keep; default: on the server when it can)} — on a Microsoft account the rule is kept on its server when the server can do all of it (it then runs there, whether MailCraft is open or not; exact address and alternative subject conditions are kept on this computer); answers {"id", "keep": "server"|"here"}"#,
         ),
         CommandSpec::new("rules.remove", "Delete Rule", "Home › Move", remove).params(r#"{"id": number} — a rule its server has is deleted there too"#),
         CommandSpec::new("rules.enable", "Enable Rule", "Home › Move", enable).params(r#"{"id": number, "value"?: bool (default: toggle)}"#),
@@ -49,6 +49,7 @@ pub enum NotOnServer {
     /// MailCraft keeps no rules on the account's server (an account of this computer, IMAP).
     NoServer,
     Flag,
+    Forward,
     /// The folder the rule moves mail to is on this computer.
     FolderHere,
     /// The folder is another account's.
@@ -58,6 +59,7 @@ pub enum NotOnServer {
     TwoMoves,
     TwoOfAKind,
     TwoImportances,
+    LocalCondition,
     /// It looks for a name in the sender or the recipients (words with a space, say), and the
     /// server looks at their addresses alone.
     Names,
@@ -72,12 +74,14 @@ impl NotOnServer {
         match self {
             NotOnServer::NoServer => "MailCraft can't keep this account's rules on its server",
             NotOnServer::Flag => "the server can't flag mail",
+            NotOnServer::Forward => "this forwarding rule runs on this computer",
             NotOnServer::FolderHere => "the folder it moves mail to is on this computer",
             NotOnServer::FolderElsewhere => "the folder it moves mail to is in another account",
             NotOnServer::FolderNotThere => "the folder it moves mail to isn't on the server",
             NotOnServer::TwoMoves => "it moves mail to more than one folder",
             NotOnServer::TwoOfAKind => "it has two conditions of one kind, and the server would take either of them rather than both",
             NotOnServer::TwoImportances => "it sets more than one importance",
+            NotOnServer::LocalCondition => "it uses a condition kept on this computer",
             NotOnServer::Names => "it looks for a name, and the server looks at addresses only",
             NotOnServer::NotInStep => "MailCraft reaches this account's rules on the server once it switches to Microsoft Graph",
         }
@@ -89,6 +93,9 @@ pub fn server_cannot(mb: &Mailbox, rule: &Rule, account: Id) -> Option<NotOnServ
     if !mb.keeps_rules(account) {
         let imap = mb.account(account).is_some_and(|a| a.on_imap_with_microsoft() && !a.is_shared());
         return Some(if imap { NotOnServer::NotInStep } else { NotOnServer::NoServer });
+    }
+    if rule.conditions.iter().any(Condition::local_only) {
+        return Some(NotOnServer::LocalCondition);
     }
     let kind = |c: &Condition| std::mem::discriminant(c);
     if rule.conditions.iter().enumerate().any(|(i, c)| rule.conditions.iter().skip(i + 1).any(|d| kind(c) == kind(d))) {
@@ -102,6 +109,7 @@ pub fn server_cannot(mb: &Mailbox, rule: &Rule, account: Id) -> Option<NotOnServ
     for action in &rule.actions {
         match action {
             Action::Flag => return Some(NotOnServer::Flag),
+            Action::ForwardThenMove { .. } => return Some(NotOnServer::Forward),
             Action::MoveTo(folder) => {
                 moves += 1;
                 let Some(f) = mb.folder(*folder) else { return Some(NotOnServer::FolderNotThere) };
@@ -158,11 +166,32 @@ fn text(v: &Value) -> Result<String, CmdError> {
     if t.is_empty() { Err(bad("a condition needs a `value`")) } else { Ok(t) }
 }
 
+fn literal_subject(value: &str) -> Result<String, CmdError> {
+    if value.trim().is_empty() || value.contains(['\r', '\n', '\0']) || value.chars().count() > 200 {
+        return Err(bad("the literal condition must have text on one line and fit within 200 characters"));
+    }
+    Ok(value.to_string())
+}
+
+fn subject_alternatives(v: &Value) -> Result<Vec<String>, CmdError> {
+    let phrases = v
+        .get("value")
+        .and_then(Value::as_array)
+        .filter(|phrases| (1..=20).contains(&phrases.len()))
+        .ok_or_else(|| bad("subjectContainsAny needs between 1 and 20 phrases"))?;
+    phrases.iter().map(|phrase| literal_subject(phrase.as_str().ok_or_else(|| bad("subjectContainsAny phrases must be strings"))?)).collect()
+}
+
 fn condition(v: &Value) -> Result<Condition, CmdError> {
     Ok(match p::req_str(v, "type")? {
         "fromContains" => Condition::FromContains(text(v)?),
+        "fromAddressIs" => {
+            Condition::FromAddressIs(mailbox_address(p::req_str(v, "value")?).ok_or_else(|| bad("fromAddressIs needs one plain email address"))?)
+        }
         "toContains" => Condition::ToContains(text(v)?),
+        "subjectContains" if p::opt_bool(v, "literal")? == Some(true) => Condition::SubjectContains(literal_subject(p::req_str(v, "value")?)?),
         "subjectContains" => Condition::SubjectContains(text(v)?),
+        "subjectContainsAny" => Condition::SubjectContainsAny(subject_alternatives(v)?),
         "bodyContains" => Condition::BodyContains(text(v)?),
         "hasAttachment" => Condition::HasAttachment,
         "importance" => {
@@ -180,6 +209,12 @@ fn action(s: &Session, v: &Value) -> Result<Action, CmdError> {
             Action::MoveTo(s.mailbox.folder(folder).map(|f| f.id).ok_or_else(|| failed!("no folder with id {id}", id = folder))?)
         }
         "categorize" => Action::Categorize(clean_name(p::str(v, "value").unwrap_or("")).ok_or_else(|| bad("categorize needs a category name"))?),
+        "forwardThenMove" => {
+            let value = v.get("value").ok_or_else(|| bad("a forwarding action needs a recipient and destination folder"))?;
+            let to =
+                mailcraft_model::mailbox_address(p::req_str(value, "to")?).ok_or_else(|| bad("a forwarding action needs one valid email address"))?;
+            Action::ForwardThenMove { to, folder: p::req_id(value, "folder")? }
+        }
         "flag" => Action::Flag,
         "markRead" => Action::MarkRead,
         "setImportance" => {
@@ -219,14 +254,13 @@ fn rule_account(s: &Session, v: &Value) -> Result<Id, CmdError> {
 /// The rule `v` asks for, with no id yet (shared by the command and the agent's question).
 pub(crate) fn rule_from_params(s: &Session, v: &Value) -> Result<Rule, CmdError> {
     let name = clean_name(p::req_str(v, "name")?).ok_or_else(|| bad("`name` is empty"))?;
-    let conditions = v
-        .get("conditions")
-        .and_then(Value::as_array)
-        .ok_or_else(|| bad("`conditions` (a list) is required"))?
-        .iter()
-        .take(20)
-        .map(condition)
-        .collect::<Result<Vec<_>, _>>()?;
+    let conditions = v.get("conditions").and_then(Value::as_array).ok_or_else(|| bad("`conditions` (a list) is required"))?;
+    if conditions.iter().take(20).any(|c| p::str(c, "type") == Some("subjectContains") && p::bool(c, "literal") == Some(true))
+        && p::opt_bool(v, "server")? != Some(false)
+    {
+        return Err(bad("a literal subject rule needs `server: false` to keep its spaces"));
+    }
+    let conditions = conditions.iter().take(20).map(condition).collect::<Result<Vec<_>, _>>()?;
     let actions = v
         .get("actions")
         .and_then(Value::as_array)
@@ -239,10 +273,35 @@ pub(crate) fn rule_from_params(s: &Session, v: &Value) -> Result<Rule, CmdError>
         return Err(bad("a rule needs at least one condition and one action"));
     }
     let account = rule_account(s, v)?;
-    let mut rule =
-        Rule { id: 0, name, enabled: true, conditions, actions, stop: p::opt_bool(v, "stop")?.unwrap_or(false), account, ..Default::default() };
+    let mut rule = Rule {
+        id: 0,
+        name,
+        enabled: p::opt_bool(v, "enabled")?.unwrap_or(true),
+        conditions,
+        actions,
+        stop: p::opt_bool(v, "stop")?.unwrap_or(false),
+        account,
+        ..Default::default()
+    };
+    if rule.actions.iter().any(|action| matches!(action, Action::ForwardThenMove { .. })) {
+        let (to, folder) = rule.forward_then_move().ok_or_else(|| bad("forward then move must be the only action in the rule"))?;
+        if p::opt_bool(v, "server")? != Some(false) || !forward_destination(&s.mailbox, rule.account, folder) {
+            return Err(bad("a forwarding rule needs a folder on the same IMAP account and server: false"));
+        }
+        if s.mailbox.account(rule.account).is_some_and(|a| a.email.eq_ignore_ascii_case(to)) {
+            return Err(bad("a rule can't forward mail to its own account address"));
+        }
+        rule.enabled = p::opt_bool(v, "enabled")?.unwrap_or(false);
+    }
     place(s, &mut rule, v)?;
     Ok(rule)
+}
+
+/// A forwarding rule may only file into an existing regular folder on its own IMAP server.
+pub fn forward_destination(mb: &Mailbox, account: Id, folder: Id) -> bool {
+    mb.account(account).is_some_and(|a| a.kind == mailcraft_model::AccountKind::Imap && !a.is_shared())
+        && !mb.is_send_queue(folder)
+        && mb.folder(folder).is_some_and(|f| f.account == account && f.kind == mailcraft_model::FolderKind::Custom && !f.remote.is_empty())
 }
 
 /// Where a new rule is kept, by `v`'s `server`: on a server that can do all of it, as Outlook
@@ -385,6 +444,17 @@ fn run(s: &mut Session, v: &Value) -> CmdResult {
         && !s.mailbox.rules.iter().any(|r| r.id == rule)
     {
         return Err(failed!("no rule with id {id}", id = rule));
+    }
+    let account = s.mailbox.folder(folder).map_or(0, |f| f.account);
+    if s.mailbox.rules.iter().any(|r| {
+        r.is_for(account)
+            && match only {
+                Some(id) => r.id == id,
+                None => r.enabled,
+            }
+            && r.forward_then_move().is_some()
+    }) {
+        return Err(fail("forwarding rules act on new Inbox mail only and can't run on existing messages"));
     }
     let matched = run_on(s, folder, only);
     Ok(json!({"matched": matched}))

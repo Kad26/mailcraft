@@ -1442,6 +1442,11 @@ msgstr "Událost označená jako soukromá ukazuje jen, že jste zaneprázdněni
 msgid "An authority on the way to a trusted one doesn't allow the certificate to be used this way."
 msgstr "Autorita na cestě k důvěryhodné autoritě nedovoluje certifikát takto použít."
 
+#. what a command says
+#: crates/engine/src/cmd/graph_switch.rs
+msgid "An automatic forward is still in the Outbox. Resolve it before switching the account to Microsoft Graph."
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/dialogs.rs
 #, fuzzy
@@ -5059,7 +5064,7 @@ msgid "Email Message"
 msgstr "E-mailová zpráva"
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/forms.rs
 #, fuzzy
 msgid "Email address"
 msgstr "E-mailová adresa"
@@ -6004,6 +6009,11 @@ msgstr "Přeposlat tento výskyt…"
 #, fuzzy
 msgid "Forward as Attachment"
 msgstr "Přeposlat jako přílohu"
+
+#. name
+#: crates/ui-egui/src/forms.rs
+msgid "Forward, then move"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
@@ -18203,6 +18213,11 @@ msgid "This folder"
 msgstr "Tato složka"
 
 #. interface
+#: crates/ui-egui/src/forms.rs
+msgid "This forwarding rule starts disabled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 #, fuzzy
 msgid "This invitation can't be answered from here, so no other time can be proposed for it."
@@ -21093,6 +21108,11 @@ msgstr "složka {p} nepatří k tomuto účtu"
 msgid "folders are nested too deeply"
 msgstr "složky jsou vnořeny příliš hluboko"
 
+#. what a command says
+#: crates/engine/src/cmd/rules.rs
+msgid "forwarding rules act on new Inbox mail only and can't run on existing messages"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 #, fuzzy
@@ -21320,6 +21340,11 @@ msgstr "odvádí okno od zprávy, kterou vlastník píše"
 #, fuzzy
 msgid "it took too long"
 msgstr "trvalo to příliš dlouho"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "it uses a condition kept on this computer"
+msgstr ""
 
 #. name
 #: crates/engine/src/agent.rs
@@ -22099,6 +22124,11 @@ msgstr "Doručená pošta tohoto účtu ještě nebyla přečtena"
 msgid "the OpenPGP key is larger than a Public key is kept"
 msgstr "klíč OpenPGP je větší, než jaký se uchovává jako veřejný klíč"
 
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the account has no Outbox"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs
 #, fuzzy
@@ -22458,6 +22488,11 @@ msgstr "zpráva nemá žádné příjemce"
 #, fuzzy
 msgid "the message has too many recipients"
 msgstr "zpráva má příliš mnoho příjemců"
+
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the message is only partly downloaded"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/format.rs crates/engine/src/cmd/picture.rs
@@ -23183,6 +23218,11 @@ msgstr "tento koncept ještě není stažený: otevřete ho, až budete online, 
 #, fuzzy
 msgid "this file holds a private key, which isn't imported as a Public key: import your own keys in File › Options › Security"
 msgstr "tento soubor obsahuje soukromý klíč, který se jako veřejný klíč neimportuje: vlastní klíče importujte v Soubor › Možnosti › Zabezpečení"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "this forwarding rule runs on this computer"
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/import_pst.rs

@@ -465,7 +465,7 @@ fn shown_pictures(m: &Message, html: &str) -> Vec<Attachment> {
     m.attachments.iter().filter(|a| mailcraft_model::shown::shown_in_place(&ids, a)).cloned().collect()
 }
 
-fn respond(s: &mut Session, v: &Value, mode: ComposeMode) -> CmdResult {
+fn response_compose(s: &Session, v: &Value, mode: ComposeMode, with_signature: bool) -> Result<Compose, CmdError> {
     // A forward carries every file; a reply only quotes the text and the pictures it shows.
     let m = match mode {
         ComposeMode::Forward => source_message(s, v)?,
@@ -535,7 +535,7 @@ fn respond(s: &mut Session, v: &Value, mode: ComposeMode) -> CmdResult {
         _ => None,
     };
     let body = if quoting && quote.is_none() { quoted(s, &m) } else { String::new() };
-    let sig = chosen_signature(s, m.account, None, true);
+    let sig = with_signature.then(|| chosen_signature(s, m.account, None, true)).flatten();
     // A line to write on, a blank one, then the signature above the original.
     let body = if sig.is_some() { format!("\n{}", body.strip_prefix('\n').unwrap_or(&body)) } else { body };
     let mut c = Compose {
@@ -557,7 +557,11 @@ fn respond(s: &mut Session, v: &Value, mode: ComposeMode) -> CmdResult {
     if let Some(sig) = &sig {
         start_with(&mut c, sig, 1)?;
     }
-    let compose = s.open_compose(c)?;
+    Ok(c)
+}
+
+fn respond(s: &mut Session, v: &Value, mode: ComposeMode) -> CmdResult {
+    let compose = s.open_compose(response_compose(s, v, mode, true)?)?;
     Ok(json!({"composing": true, "mode": mode, "compose": compose}))
 }
 
@@ -1497,6 +1501,46 @@ fn answers_of(s: &Session, c: &Compose) -> Option<Answers> {
     });
     let first = originals.next()?;
     Some(Answers { also: originals.collect(), ..first })
+}
+
+/// Mailbox data can arrive back through a redirect. Leave an automatic forward where it lands.
+const RULE_FORWARD_MARK: &str = "mailcraft-rule-forward";
+
+/// Put a rule's forward through the same Outbox and SMTP confirmation as a regular forward.
+pub(super) fn queue_rule_forward(s: &mut Session, source: Id, rule: mailcraft_model::RuleForward) -> Result<(), CmdError> {
+    let Some(original) = s.mailbox.message(source) else { return Ok(()) };
+    let (account, inbox, uid) = (original.account, original.folder, original.uid);
+    let Some(to) = mailcraft_model::mailbox_address(&rule.to) else { return Ok(()) };
+    let Some(sender) = s.mailbox.account(account) else { return Ok(()) };
+    if original.forwarded
+        || uid == 0
+        || sender.email.eq_ignore_ascii_case(&to)
+        || original.from.email.eq_ignore_ascii_case(&to)
+        || original.header_values("X-Loop").any(|mark| mark.trim().eq_ignore_ascii_case(RULE_FORWARD_MARK))
+        || s.mailbox.folder_of_kind(account, FolderKind::Inbox) != Some(inbox)
+        || !super::rules::forward_destination(&s.mailbox, account, rule.folder)
+    {
+        return Ok(());
+    }
+    if original.not_downloaded != 0 {
+        return Err(fail("the message is only partly downloaded"));
+    }
+    let outbox = s.mailbox.folder_of_kind(account, FolderKind::Outbox).ok_or_else(|| fail("the account has no Outbox"))?;
+    if s.mailbox.messages_in(outbox).any(|m| m.forward_move.as_ref().is_some_and(|pending| pending.source == source)) {
+        return Ok(());
+    }
+    let mut compose = response_compose(s, &json!({"id": source}), ComposeMode::Forward, false)?;
+    compose.to = to;
+    let domain = sender.email.rsplit_once('@').map_or("", |(_, domain)| domain);
+    let message_id = mailcraft_mime::new_message_id(domain, s.now(), source.rotate_left(31) ^ s.rev());
+    let mut mail = build_as(s, &compose, true, Some(&message_id))?;
+    mail.folder = outbox;
+    mail.answers = answers_of(s, &compose);
+    mail.headers.push(("Auto-Submitted".into(), "auto-generated".into()));
+    mail.headers.push(("X-Loop".into(), RULE_FORWARD_MARK.into()));
+    mail.forward_move = Some(mailcraft_model::ForwardMove { rule: rule.rule, source, inbox, uid, destination: rule.folder });
+    s.mailbox.add_message(mail)?;
+    Ok(())
 }
 
 fn send(s: &mut Session, params: &Value) -> CmdResult {

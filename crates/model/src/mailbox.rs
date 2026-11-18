@@ -3173,8 +3173,18 @@ impl Mailbox {
     /// [`Mailbox::apply_rules`], or with `now` every rule acts (Run Rules Now, which runs the rules
     /// the server has here too, as Outlook does).
     pub fn run_rules(&mut self, id: Id, now: bool) -> Vec<String> {
+        self.run_rules_inner(id, now, false).0
+    }
+
+    /// Sort new IMAP mail, returning the local forwarding action for the engine to queue.
+    pub fn apply_imap_rules(&mut self, id: Id) -> Option<crate::rule::RuleForward> {
+        self.run_rules_inner(id, false, true).1
+    }
+
+    fn run_rules_inner(&mut self, id: Id, now: bool, plan_forward: bool) -> (Vec<String>, Option<crate::rule::RuleForward>) {
         let mut ran = Vec::new();
-        let Some(account) = self.message(id).map(|m| m.account) else { return ran };
+        let mut forward = None;
+        let Some(account) = self.message(id).map(|m| m.account) else { return (ran, forward) };
         let order: Vec<Rule> = self.rules_in_order(account).into_iter().filter_map(|i| self.rules.get(i).cloned()).collect();
         for mut rule in order {
             let Some(m) = self.message(id) else { break };
@@ -3186,15 +3196,29 @@ impl Mailbox {
             if !rule.matches_as(m, self.rule_reads_addresses(&rule)) {
                 continue;
             }
-            if now || !rule.on_server() {
-                self.act(id, &rule.actions);
+            if rule.actions.iter().any(|action| matches!(action, Action::ForwardThenMove { .. })) {
+                if let Some((to, folder)) = rule.forward_then_move()
+                    && plan_forward
+                    && forward.is_none()
+                    && rule.keep == crate::Keep::Here
+                    && !rule.on_server()
+                    && rule.account == account
+                    && self.folder_of_kind(account, FolderKind::Inbox) == Some(m.folder)
+                {
+                    forward = Some(crate::rule::RuleForward { rule: rule.id, to: to.to_string(), folder });
+                    ran.push(rule.name.clone());
+                } else {
+                    continue;
+                }
+            } else if now || !rule.on_server() {
+                self.act(id, &rule.actions, forward.is_some());
                 ran.push(rule.name.clone());
             }
             if rule.stop {
                 break;
             }
         }
-        ran
+        (ran, forward)
     }
 
     /// Run the one rule `rule` on a message now (a rule just made, run over the mail already in a
@@ -3202,17 +3226,19 @@ impl Mailbox {
     pub fn run_rule(&mut self, id: Id, rule: Id) -> bool {
         let Some(m) = self.message(id) else { return false };
         let Some(rule) = self.rules.iter().find(|r| r.id == rule && r.is_for(m.account)).cloned() else { return false };
-        if !rule.matches_as(m, self.rule_reads_addresses(&rule)) {
+        if !rule.matches_as(m, self.rule_reads_addresses(&rule)) || rule.actions.iter().any(|action| matches!(action, Action::ForwardThenMove { .. }))
+        {
             return false;
         }
-        self.act(id, &rule.actions);
+        self.act(id, &rule.actions, false);
         true
     }
 
     /// Do what a rule says to a message.
-    fn act(&mut self, id: Id, actions: &[Action]) {
+    fn act(&mut self, id: Id, actions: &[Action], filing_reserved: bool) {
         for action in actions {
             match action {
+                Action::MoveTo(_) | Action::Delete if filing_reserved => {}
                 Action::MoveTo(folder) => {
                     // A rule pointing at a folder that is gone does nothing, and none puts
                     // mail into a send queue (the next Send/Receive would send it).

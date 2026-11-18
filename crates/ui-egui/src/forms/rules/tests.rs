@@ -84,6 +84,28 @@ fn a_new_rule_is_spelled_out_for_the_command() {
 }
 
 #[test]
+fn a_forward_and_move_rule_stays_on_this_computer() {
+    let s = session();
+    let mut f = RulesForm::new(&s, &json!({}));
+    let receipts = folder_id(&s, "Receipts");
+    f.name = "Forward and file receipts".into();
+    f.conds[0].text = "billing@example.org".into();
+    f.forward_folders = vec![(receipts, "Receipts".into())];
+    f.acts = vec![Act { kind: Do::Forward, folder: receipts, ..f.fresh_action() }];
+    assert!(!f.ready());
+    f.acts[0].recipients = "accounting@example.org".into();
+    assert!(f.ready());
+    let (_, params) = f.command();
+    assert_eq!(params["server"], false);
+    assert_eq!(
+        params["actions"],
+        json!([
+            {"type": "forwardThenMove", "value": {"to": "accounting@example.org", "folder": receipts}}
+        ])
+    );
+}
+
+#[test]
 fn add_waits_for_what_a_rule_needs() {
     let s = session();
     let mut f = RulesForm::new(&s, &json!({}));

@@ -368,3 +368,18 @@ fn a_switched_account_has_no_calendar_and_contacts_server_of_its_own() {
     assert!(s.mailbox.account(ids.account).unwrap().dav.is_none());
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn a_pending_rule_forward_prevents_the_outbox_switching_to_graph() {
+    let (mut s, ids) = mailbox();
+    let outbox = s.mailbox.folder_of_kind(ids.account, FolderKind::Outbox).unwrap();
+    let pending = Message {
+        forward_move: Some(mailcraft_model::ForwardMove { source: ids.on_server, destination: ids.projects, ..Default::default() }),
+        ..message(outbox, "Automatic forward", 0)
+    };
+    let queued = s.mailbox.add_message(pending).unwrap();
+    assert!(switch(&mut s, ids.account).is_err());
+    assert_eq!(s.mailbox.account(ids.account).unwrap().kind, AccountKind::Imap);
+    assert_eq!(s.mailbox.message(queued).unwrap().folder, outbox);
+    assert_eq!(s.mailbox.message(ids.on_server).unwrap().folder, ids.inbox);
+}

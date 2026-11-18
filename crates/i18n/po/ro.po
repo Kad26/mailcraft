@@ -1449,6 +1449,11 @@ msgstr "O programare marcată privată arată doar că sunteți ocupat. Nu este 
 msgid "An authority on the way to a trusted one doesn't allow the certificate to be used this way."
 msgstr "O autoritate de pe drumul spre una de încredere nu permite folosirea certificatului în acest fel."
 
+#. what a command says
+#: crates/engine/src/cmd/graph_switch.rs
+msgid "An automatic forward is still in the Outbox. Resolve it before switching the account to Microsoft Graph."
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/dialogs.rs
 #, fuzzy
@@ -5068,7 +5073,7 @@ msgid "Email Message"
 msgstr "Mesaj de e-mail"
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/forms.rs
 #, fuzzy
 msgid "Email address"
 msgstr "Adresă de e-mail"
@@ -6011,6 +6016,11 @@ msgstr "Redirecționare această apariție…"
 #, fuzzy
 msgid "Forward as Attachment"
 msgstr "Redirecționare ca atașament"
+
+#. name
+#: crates/ui-egui/src/forms.rs
+msgid "Forward, then move"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
@@ -18227,6 +18237,11 @@ msgid "This folder"
 msgstr "Acest folder"
 
 #. interface
+#: crates/ui-egui/src/forms.rs
+msgid "This forwarding rule starts disabled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 #, fuzzy
 msgid "This invitation can't be answered from here, so no other time can be proposed for it."
@@ -21118,6 +21133,11 @@ msgstr "dosarul {p} nu aparține acelui cont"
 msgid "folders are nested too deeply"
 msgstr "dosarele sunt imbricate prea adânc"
 
+#. what a command says
+#: crates/engine/src/cmd/rules.rs
+msgid "forwarding rules act on new Inbox mail only and can't run on existing messages"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 #, fuzzy
@@ -21345,6 +21365,11 @@ msgstr "ia fereastra de pe mesajul pe care îl scrie proprietarul"
 #, fuzzy
 msgid "it took too long"
 msgstr "a durat prea mult"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "it uses a condition kept on this computer"
+msgstr ""
 
 #. name
 #: crates/engine/src/agent.rs
@@ -22124,6 +22149,11 @@ msgstr "dosarul Mesaje primite al acestui cont nu a fost încă citit"
 msgid "the OpenPGP key is larger than a Public key is kept"
 msgstr "cheia OpenPGP este mai mare decât se păstrează o cheie publică"
 
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the account has no Outbox"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs
 #, fuzzy
@@ -22483,6 +22513,11 @@ msgstr "mesajul nu are destinatari"
 #, fuzzy
 msgid "the message has too many recipients"
 msgstr "mesajul are prea mulți destinatari"
+
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the message is only partly downloaded"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/format.rs crates/engine/src/cmd/picture.rs
@@ -23208,6 +23243,11 @@ msgstr "această ciornă nu este încă descărcată: deschideți-o când sunte�
 #, fuzzy
 msgid "this file holds a private key, which isn't imported as a Public key: import your own keys in File › Options › Security"
 msgstr "acest fișier conține o cheie privată, care nu se importă ca cheie publică: importați-vă cheile proprii din Fișier › Opțiuni › Securitate"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "this forwarding rule runs on this computer"
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/import_pst.rs

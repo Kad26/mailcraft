@@ -1366,6 +1366,11 @@ msgstr "Bei einem als privat gekennzeichneten Termin wird nur angezeigt, dass Si
 msgid "An authority on the way to a trusted one doesn't allow the certificate to be used this way."
 msgstr "Eine Zertifizierungsstelle auf dem Weg zu einer vertrauenswürdigen Stelle erlaubt nicht, das Zertifikat auf diese Weise zu verwenden."
 
+#. what a command says
+#: crates/engine/src/cmd/graph_switch.rs
+msgid "An automatic forward is still in the Outbox. Resolve it before switching the account to Microsoft Graph."
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/dialogs.rs
 #, fuzzy
@@ -4776,7 +4781,7 @@ msgid "Email Message"
 msgstr "E-Mail-Nachricht"
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/forms.rs
 msgid "Email address"
 msgstr "E-Mail-Adresse"
 
@@ -5642,6 +5647,11 @@ msgstr "Dieses Vorkommen weiterleiten…"
 #, fuzzy
 msgid "Forward as Attachment"
 msgstr "Als Anlage weiterleiten"
+
+#. name
+#: crates/ui-egui/src/forms.rs
+msgid "Forward, then move"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
@@ -17011,6 +17021,11 @@ msgid "This folder"
 msgstr "Dieser Ordner"
 
 #. interface
+#: crates/ui-egui/src/forms.rs
+msgid "This forwarding rule starts disabled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 #, fuzzy
 msgid "This invitation can't be answered from here, so no other time can be proposed for it."
@@ -19738,6 +19753,11 @@ msgstr "Ordner {p} gehört nicht zum angegebenen Konto"
 msgid "folders are nested too deeply"
 msgstr "Ordner sind zu tief verschachtelt"
 
+#. what a command says
+#: crates/engine/src/cmd/rules.rs
+msgid "forwarding rules act on new Inbox mail only and can't run on existing messages"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 msgid "from {from} to {to}"
@@ -19947,6 +19967,11 @@ msgstr "es nimmt das Fenster von der Nachricht weg, die der Besitzer schreibt"
 #, fuzzy
 msgid "it took too long"
 msgstr "es hat zu lange gedauert"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "it uses a condition kept on this computer"
+msgstr ""
 
 #. name
 #: crates/engine/src/agent.rs
@@ -20676,6 +20701,11 @@ msgstr "der Posteingang dieses Kontos wurde noch nicht gelesen"
 msgid "the OpenPGP key is larger than a Public key is kept"
 msgstr "der OpenPGP-Schlüssel ist größer als ein gespeicherter öffentlicher Schlüssel"
 
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the account has no Outbox"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs
 #, fuzzy
@@ -21010,6 +21040,11 @@ msgstr "Die Nachricht hat keine Empfänger"
 #, fuzzy
 msgid "the message has too many recipients"
 msgstr "Die Nachricht hat zu viele Empfänger"
+
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the message is only partly downloaded"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/format.rs crates/engine/src/cmd/picture.rs
@@ -21709,6 +21744,11 @@ msgstr "dieser Entwurf ist noch nicht heruntergeladen: Öffnen Sie ihn, sobald S
 #: crates/engine/src/cmd/keys.rs
 msgid "this file holds a private key, which isn't imported as a Public key: import your own keys in File › Options › Security"
 msgstr "diese Datei enthält einen privaten Schlüssel, der nicht als öffentlicher Schlüssel importiert wird: importieren Sie Ihre eigenen Schlüssel unter Datei › Optionen › Sicherheit"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "this forwarding rule runs on this computer"
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/import_pst.rs

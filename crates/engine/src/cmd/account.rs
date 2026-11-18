@@ -905,7 +905,11 @@ pub fn sync_request(s: &Session, account: Id) -> Result<SyncRequest, CmdError> {
     for m in s.mailbox.messages.values() {
         // Only what was queued with Send goes; a message moved here is held until Send Again (#607).
         // (Not what waits for its Send time, #950.)
-        if Some(m.folder) == outbox_folder && m.held.is_empty() && !m.waits_until(clock) {
+        if Some(m.folder) == outbox_folder
+            && m.held.is_empty()
+            && !m.waits_until(clock)
+            && m.forward_move.as_ref().is_none_or(|pending| forward_still_allowed(&s.mailbox, m, pending))
+        {
             outbox.push(m.as_ref().clone());
         }
         if m.uid != 0 {
@@ -1478,6 +1482,22 @@ fn apply_sync_piece(s: &mut Session, run: &mut SyncTotals, mut result: SyncResul
     }))
 }
 
+/// A pending automatic forward must still agree with the owner's local rule. Disabling or
+/// removing it prevents another handoff. A destination that disappeared cannot file the source.
+fn forward_still_allowed(mb: &Mailbox, outgoing: &Message, pending: &mailcraft_model::ForwardMove) -> bool {
+    mb.rules.iter().any(|r| {
+        r.id == pending.rule
+            && r.enabled
+            && r.account == outgoing.account
+            && r.keep == mailcraft_model::Keep::Here
+            && !r.on_server()
+            && r.forward_then_move().is_some_and(|(to, folder)| {
+                folder == pending.destination && outgoing.to.len() == 1 && outgoing.to.first().is_some_and(|addr| addr.email.eq_ignore_ascii_case(to))
+            })
+    }) && super::rules::forward_destination(mb, outgoing.account, pending.destination)
+        && mb.message(pending.source).is_some_and(|m| m.account == outgoing.account && m.folder == pending.inbox && m.uid == pending.uid)
+}
+
 /// Take in what a result has for the mailbox. Returns what that changed, and how many messages
 /// were sent.
 fn take_in_news(s: &mut Session, account: Id, result: &mut SyncResult) -> (Counts, usize) {
@@ -1520,6 +1540,13 @@ fn take_in_news(s: &mut Session, account: Id, result: &mut SyncResult) -> (Count
     }
     moved_in_for_good(mb, account);
     result.errors.append(&mut counts.notes);
+    let mut forward_failed = false;
+    for (source, rule) in std::mem::take(&mut counts.forwards) {
+        forward_failed |= super::compose::queue_rule_forward(s, source, rule).is_err();
+    }
+    if forward_failed {
+        result.errors.push("MailCraft could not queue an automatic forward; the original stayed in the Inbox.".into());
+    }
     if told {
         s.forget_history();
     }
@@ -1538,6 +1565,7 @@ struct Counts {
     matched: usize,
     /// What the owner is to be told of (a mailbox the server numbered anew).
     notes: Vec<String>,
+    forwards: Vec<(Id, mailcraft_model::RuleForward)>,
 }
 
 /// What is known, while a result is taken in, about where the server has the account's messages.
@@ -1598,6 +1626,13 @@ pub(super) fn file_sent(mb: &mut Mailbox, account: Id, result: &SyncResult, now:
             moved += 1;
             // A reminder "after so many days" counts them from now that it has gone (#948).
             mb.follow_up_sent(*id, now);
+            let pending = mb.message_mut(*id).ok().and_then(|m| m.forward_move.take());
+            if let Some(job) = pending
+                && mb.message(job.source).is_some_and(|m| m.account == account && m.folder == job.inbox && m.uid == job.uid)
+                && super::rules::forward_destination(mb, account, job.destination)
+            {
+                let _ = mb.move_message(job.source, job.destination);
+            }
             // Moved or copied into the Outbox from elsewhere and sent with Send Again (#704): the
             // send files it in Sent Items, so it is no longer to be put on the server as a
             // message moved in, which would put it there twice. An original elsewhere goes once
@@ -2354,6 +2389,7 @@ fn take_in(
         m.id = 0;
         m.folder = folder;
         m.synced = (uid != 0).then(|| RemoteFlags::of(&m, uid));
+        m.forward_move = None;
         // A copy of mail moved or deleted here: neither new nor sorted, while it waits.
         let waited = awaited.iter().any(|(id, seen)| *id == m.message_id && seen.fits(&m));
         let Ok(id) = mb.add_message(m) else { continue };
@@ -2369,7 +2405,13 @@ fn take_in(
             // them as any mail arriving in the Inbox does.
             let sorted = sorting && uid > old_seen && mb.sort_junk(id);
             if inbox != sorted {
-                mb.apply_rules(id);
+                if inbox && sorting && uid > old_seen {
+                    if let Some(rule) = mb.apply_imap_rules(id) {
+                        counts.forwards.push((id, rule));
+                    }
+                } else {
+                    mb.apply_rules(id);
+                }
             }
             // A list or a rule that moved it away has noted the move.
             if uid != 0 && !mb.message(id).is_some_and(|m| m.folder == folder && m.uid == uid) {

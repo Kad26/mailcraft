@@ -1203,6 +1203,11 @@ msgstr ""
 msgid "An authority on the way to a trusted one doesn't allow the certificate to be used this way."
 msgstr ""
 
+#. what a command says
+#: crates/engine/src/cmd/graph_switch.rs
+msgid "An automatic forward is still in the Outbox. Resolve it before switching the account to Microsoft Graph."
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/dialogs.rs
 msgid "An https:// or webcal:// address. Nothing is read until you press Subscribe. The calendar is listed under Other Calendars, read-only, and brought up to date from the web every hour and when you press Send/Receive; you can choose another time in File › Info. Its address is asked for over an encrypted connection, with nothing that says who you are. A private address holds a secret: it is kept like a password, in your system's credential store when you let MailCraft remember sign-ins, and otherwise until you quit."
@@ -4201,7 +4206,7 @@ msgid "Email Message"
 msgstr ""
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/forms.rs
 msgid "Email address"
 msgstr ""
 
@@ -4973,6 +4978,11 @@ msgstr ""
 #. command label, interface, ribbon
 #: crates/engine/src/cmd/compose.rs crates/ui-egui/src/mail_view.rs crates/ui-egui/src/ribbon.rs
 msgid "Forward as Attachment"
+msgstr ""
+
+#. name
+#: crates/ui-egui/src/forms.rs
+msgid "Forward, then move"
 msgstr ""
 
 #. interface
@@ -15071,6 +15081,11 @@ msgid "This folder"
 msgstr ""
 
 #. interface
+#: crates/ui-egui/src/forms.rs
+msgid "This forwarding rule starts disabled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 msgid "This invitation can't be answered from here, so no other time can be proposed for it."
 msgstr ""
@@ -17459,6 +17474,11 @@ msgstr ""
 msgid "folders are nested too deeply"
 msgstr ""
 
+#. what a command says
+#: crates/engine/src/cmd/rules.rs
+msgid "forwarding rules act on new Inbox mail only and can't run on existing messages"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 msgid "from {from} to {to}"
@@ -17647,6 +17667,11 @@ msgstr ""
 #. interface
 #: crates/ui-egui/src/reading/remote.rs
 msgid "it took too long"
+msgstr ""
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "it uses a condition kept on this computer"
 msgstr ""
 
 #. name
@@ -18299,6 +18324,11 @@ msgstr ""
 msgid "the OpenPGP key is larger than a Public key is kept"
 msgstr ""
 
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the account has no Outbox"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs
 msgid "the account has no incoming server"
@@ -18597,6 +18627,11 @@ msgstr ""
 #. why a mail server couldn't be used
 #: crates/proto/src/smtp.rs
 msgid "the message has too many recipients"
+msgstr ""
+
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the message is only partly downloaded"
 msgstr ""
 
 #. why a command can't run
@@ -19202,6 +19237,11 @@ msgstr ""
 #. what a command says
 #: crates/engine/src/cmd/keys.rs
 msgid "this file holds a private key, which isn't imported as a Public key: import your own keys in File › Options › Security"
+msgstr ""
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "this forwarding rule runs on this computer"
 msgstr ""
 
 #. what a command says

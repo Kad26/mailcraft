@@ -24,10 +24,14 @@ pub enum Condition {
     /// The sender's name or address contains the text (a rule kept on a Microsoft account's
     /// server: the address alone, as the server reads it).
     FromContains(String),
+    /// The whole sender address, ignoring letter case. The display name is never compared.
+    FromAddressIs(String),
     /// Any To/Cc recipient's name or address contains the text (a rule kept on a Microsoft
     /// account's server: the addresses alone).
     ToContains(String),
     SubjectContains(String),
+    /// Any one of these phrases occurs in the subject, including any surrounding spaces.
+    SubjectContainsAny(Vec<String>),
     BodyContains(String),
     HasAttachment,
     Importance(Importance),
@@ -45,8 +49,13 @@ impl Condition {
         let person = |a: &crate::Address, t: &str| contains_ci(&a.email, t) || (!addresses_only && contains_ci(&a.name, t));
         match self {
             Condition::FromContains(t) => person(&m.from, t),
+            Condition::FromAddressIs(t) => !t.is_empty() && m.from.email.eq_ignore_ascii_case(t),
             Condition::ToContains(t) => m.to.iter().chain(&m.cc).any(|a| person(a, t)),
             Condition::SubjectContains(t) => contains_ci(&m.subject, t),
+            Condition::SubjectContainsAny(texts) => {
+                let subject = m.subject.to_lowercase();
+                texts.iter().any(|text| !text.trim().is_empty() && subject.contains(&text.to_lowercase()))
+            }
             Condition::BodyContains(t) => contains_ci(&m.body.text, t) || contains_ci(&m.hidden_text, t),
             Condition::HasAttachment => m.has_attachments(),
             Condition::Importance(i) => m.importance == *i,
@@ -64,11 +73,26 @@ impl Condition {
             Condition::FromContains(t) if addresses_only => format!("sender's address contains \"{t}\""),
             Condition::ToContains(t) if addresses_only => format!("recipient's address contains \"{t}\""),
             Condition::FromContains(t) => format!("from contains \"{t}\""),
+            Condition::FromAddressIs(t) => format!("sender's address is \"{t}\""),
             Condition::ToContains(t) => format!("sent to \"{t}\""),
             Condition::SubjectContains(t) => format!("subject contains \"{t}\""),
+            Condition::SubjectContainsAny(texts) => {
+                let phrases = texts.iter().map(|text| format!("{text:?}")).collect::<Vec<_>>().join(" or ");
+                format!("subject contains any of ({phrases})")
+            }
             Condition::BodyContains(t) => format!("body contains \"{t}\""),
             Condition::HasAttachment => "has an attachment".into(),
             Condition::Importance(i) => format!("importance is {}", i.code()),
+        }
+    }
+
+    /// Whether this condition is kept on this computer. The Graph rule mapper doesn't send
+    /// exact addresses and alternatives, or literals whose surrounding spaces would be lost.
+    pub fn local_only(&self) -> bool {
+        match self {
+            Condition::FromAddressIs(_) | Condition::SubjectContainsAny(_) => true,
+            Condition::SubjectContains(text) => text.trim() != text,
+            _ => false,
         }
     }
 }
@@ -78,6 +102,11 @@ impl Condition {
 pub enum Action {
     /// Move to the folder with this id.
     MoveTo(Id),
+    /// On new IMAP mail, queue a forward and file the source only after SMTP accepted it.
+    ForwardThenMove {
+        to: String,
+        folder: Id,
+    },
     Categorize(String),
     Flag,
     MarkRead,
@@ -90,6 +119,7 @@ impl Action {
     pub fn describe(&self) -> String {
         match self {
             Action::MoveTo(_) => "move it to a folder".into(),
+            Action::ForwardThenMove { to, .. } => format!("forward it to {to} and move it after it is sent"),
             Action::Categorize(c) => format!("categorize it as \"{c}\""),
             Action::Flag => "flag it".into(),
             Action::MarkRead => "mark it as read".into(),
@@ -196,7 +226,32 @@ pub struct Rule {
     pub unanswered: bool,
 }
 
+/// A matched forwarding rule that the engine can turn into an Outbox message.
+pub struct RuleForward {
+    pub rule: Id,
+    pub to: String,
+    pub folder: Id,
+}
+
+/// Local work to finish when SMTP positively acknowledges an automatic forward.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+pub struct ForwardMove {
+    pub rule: Id,
+    pub source: Id,
+    pub inbox: Id,
+    pub uid: u32,
+    pub destination: Id,
+}
+
 impl Rule {
+    pub fn forward_then_move(&self) -> Option<(&str, Id)> {
+        match self.actions.as_slice() {
+            [Action::ForwardThenMove { to, folder }] => Some((to, *folder)),
+            _ => None,
+        }
+    }
+
     pub fn matches(&self, m: &Message) -> bool {
         self.matches_as(m, false)
     }

@@ -42,6 +42,8 @@ pub const WORKING: &[&str] = &[
     "List-Unsubscribe",
     "List-Unsubscribe-Post",
     "DKIM-Signature",
+    // An automatic forward may come back through another mailbox's redirect.
+    "X-Loop",
     // A request for a read receipt, which an answer never makes.
     "Disposition-Notification-To",
     // What a .pst file's item said of who sent it and how sensitive it is.

@@ -1449,6 +1449,11 @@ msgstr "标记为私人的约会只显示您正忙，不会显示受邀者的姓
 msgid "An authority on the way to a trusted one doesn't allow the certificate to be used this way."
 msgstr "通往受信任证书颁发机构的证书链中，有颁发机构不允许以此方式使用该证书。"
 
+#. what a command says
+#: crates/engine/src/cmd/graph_switch.rs
+msgid "An automatic forward is still in the Outbox. Resolve it before switching the account to Microsoft Graph."
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/dialogs.rs
 #, fuzzy
@@ -5061,7 +5066,7 @@ msgid "Email Message"
 msgstr "电子邮件"
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/forms.rs
 #, fuzzy
 msgid "Email address"
 msgstr "电子邮件地址"
@@ -5990,6 +5995,11 @@ msgstr "转发此日程…"
 #, fuzzy
 msgid "Forward as Attachment"
 msgstr "作为附件转发"
+
+#. name
+#: crates/ui-egui/src/forms.rs
+msgid "Forward, then move"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
@@ -18160,6 +18170,11 @@ msgid "This folder"
 msgstr "此文件夹"
 
 #. interface
+#: crates/ui-egui/src/forms.rs
+msgid "This forwarding rule starts disabled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 #, fuzzy
 msgid "This invitation can't be answered from here, so no other time can be proposed for it."
@@ -21040,6 +21055,11 @@ msgstr "文件夹 {p} 不属于该账户"
 msgid "folders are nested too deeply"
 msgstr "文件夹嵌套层级过深"
 
+#. what a command says
+#: crates/engine/src/cmd/rules.rs
+msgid "forwarding rules act on new Inbox mail only and can't run on existing messages"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 #, fuzzy
@@ -21267,6 +21287,11 @@ msgstr "它会让窗口离开用户正在撰写的邮件"
 #, fuzzy
 msgid "it took too long"
 msgstr "操作超时"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "it uses a condition kept on this computer"
+msgstr ""
 
 #. name
 #: crates/engine/src/agent.rs
@@ -22046,6 +22071,11 @@ msgstr "尚未读取此账户的收件箱"
 msgid "the OpenPGP key is larger than a Public key is kept"
 msgstr "OpenPGP 密钥超过公钥可保存的大小上限"
 
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the account has no Outbox"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs
 #, fuzzy
@@ -22405,6 +22435,11 @@ msgstr "此邮件没有收件人"
 #, fuzzy
 msgid "the message has too many recipients"
 msgstr "该邮件的收件人太多"
+
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the message is only partly downloaded"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/format.rs crates/engine/src/cmd/picture.rs
@@ -23130,6 +23165,11 @@ msgstr "此草稿尚未下载：请联网后打开并编辑"
 #, fuzzy
 msgid "this file holds a private key, which isn't imported as a Public key: import your own keys in File › Options › Security"
 msgstr "此文件包含私钥，无法作为公钥导入：请在文件 › 选项 › 安全性中导入您自己的密钥"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "this forwarding rule runs on this computer"
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/import_pst.rs

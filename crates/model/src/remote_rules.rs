@@ -80,7 +80,12 @@ impl RemoteRule {
             kept
         };
         let mut conditions = Vec::new();
+        let mut local_condition = false;
         for condition in std::mem::take(&mut self.conditions).into_iter().take(MAX_PARTS) {
+            if condition.local_only() {
+                local_condition = true;
+                continue;
+            }
             let tidied = match condition {
                 Condition::FromContains(t) => Condition::FromContains(words(&t)),
                 Condition::ToContains(t) => Condition::ToContains(words(&t)),
@@ -93,10 +98,14 @@ impl RemoteRule {
                 conditions.push(tidied);
             }
         }
+        if local_condition {
+            note(CUT_LOCAL_CONDITION);
+        }
         self.conditions = conditions;
         let mut actions = Vec::new();
         for action in std::mem::take(&mut self.actions).into_iter().take(MAX_PARTS) {
             match action {
+                Action::ForwardThenMove { .. } => note("forwardThenMove"),
                 Action::MoveTo(_) => {}
                 Action::Categorize(c) => match clean_name(&c) {
                     Some(name) if c.trim().chars().count() <= MAX_NAME => actions.push(Action::Categorize(name)),
@@ -122,6 +131,7 @@ impl RemoteRule {
 const CUT_PARTS: &str = "(more parts than are kept)";
 const CUT_WORDS: &str = "(words longer than are kept)";
 const CUT_EMPTY: &str = "(a condition with no words)";
+const CUT_LOCAL_CONDITION: &str = "(a condition kept on this computer)";
 const CUT_CATEGORY: &str = "(a category with no name)";
 const CUT_UNNAMED: &str = "(a part with no name)";
 

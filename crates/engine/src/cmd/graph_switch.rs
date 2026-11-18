@@ -202,6 +202,10 @@ pub fn switch(s: &mut Session, account: Id) -> Result<Switched, CmdError> {
     if !a.on_imap_with_microsoft() {
         return Err(failed!("{name} isn't a Microsoft account kept in step by IMAP", name = a.name));
     }
+    // Graph would take over the old Outbox, but only the IMAP send result can file this source.
+    if s.mailbox.folder_of_kind(account, FolderKind::Outbox).is_some_and(|outbox| s.mailbox.messages_in(outbox).any(|m| m.forward_move.is_some())) {
+        return Err(fail("An automatic forward is still in the Outbox. Resolve it before switching the account to Microsoft Graph."));
+    }
     let now = u64::try_from(s.now()).unwrap_or_default();
     let mb = &mut s.mailbox;
     let mut done = Switched::default();

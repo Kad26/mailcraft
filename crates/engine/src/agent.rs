@@ -1551,6 +1551,16 @@ fn verdict(s: &Session, id: &str, params: &Value, allow: &[Class], yes: Option<C
     if access(id).is_none() {
         return Verdict::Refuse(format!("`{id}` isn't available to agents"));
     }
+    let turns_on_forwarding = match id {
+        "rules.add" => crate::cmd::rules::rule_from_params(s, params).is_ok_and(|r| r.enabled && r.forward_then_move().is_some()),
+        "rules.enable" => p::id(params, "id")
+            .and_then(|n| s.mailbox.rules.iter().find(|r| r.id == n))
+            .is_some_and(|r| r.forward_then_move().is_some() && p::bool(params, "value").unwrap_or(!r.enabled)),
+        _ => false,
+    };
+    if turns_on_forwarding {
+        return Verdict::Refuse("the owner must enable automatic forwarding in MailCraft".into());
+    }
     if let Some(key) = file_named(id, params) {
         return Verdict::Refuse(no_paths(id, key));
     }

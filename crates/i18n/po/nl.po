@@ -1410,6 +1410,11 @@ msgstr "Een afspraak die als persoonlijk is gemarkeerd, toont alleen dat u bezet
 msgid "An authority on the way to a trusted one doesn't allow the certificate to be used this way."
 msgstr "Een certificeringsautoriteit op de weg naar een vertrouwde staat het gebruik van dit certificaat niet toe."
 
+#. what a command says
+#: crates/engine/src/cmd/graph_switch.rs
+msgid "An automatic forward is still in the Outbox. Resolve it before switching the account to Microsoft Graph."
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/dialogs.rs
 #, fuzzy
@@ -4865,7 +4870,7 @@ msgid "Email Message"
 msgstr "E-mailbericht"
 
 #. interface
-#: crates/ui-egui/src/account_setup.rs
+#: crates/ui-egui/src/account_setup.rs crates/ui-egui/src/forms.rs
 #, fuzzy
 msgid "Email address"
 msgstr "E-mailadres"
@@ -5748,6 +5753,11 @@ msgstr "Dit exemplaar doorsturen…"
 #: crates/engine/src/cmd/compose.rs crates/ui-egui/src/mail_view.rs crates/ui-egui/src/ribbon.rs
 msgid "Forward as Attachment"
 msgstr "Doorsturen als bijlage"
+
+#. name
+#: crates/ui-egui/src/forms.rs
+msgid "Forward, then move"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
@@ -17597,6 +17607,11 @@ msgid "This folder"
 msgstr "Deze map"
 
 #. interface
+#: crates/ui-egui/src/forms.rs
+msgid "This forwarding rule starts disabled."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/meeting_dialogs.rs
 #, fuzzy
 msgid "This invitation can't be answered from here, so no other time can be proposed for it."
@@ -20431,6 +20446,11 @@ msgstr "map {p} hoort niet bij dat account"
 msgid "folders are nested too deeply"
 msgstr "mappen zijn te diep genest"
 
+#. what a command says
+#: crates/engine/src/cmd/rules.rs
+msgid "forwarding rules act on new Inbox mail only and can't run on existing messages"
+msgstr ""
+
 #. interface
 #: crates/ui-egui/src/account_setup/exchange.rs
 #, fuzzy
@@ -20657,6 +20677,11 @@ msgstr "het haalt het venster weg bij het bericht dat de eigenaar aan het schrij
 #, fuzzy
 msgid "it took too long"
 msgstr "het duurde te lang"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "it uses a condition kept on this computer"
+msgstr ""
 
 #. name
 #: crates/engine/src/agent.rs
@@ -21436,6 +21461,11 @@ msgstr "het Postvak IN van dit account is nog niet gelezen"
 msgid "the OpenPGP key is larger than a Public key is kept"
 msgstr "de OpenPGP-sleutel is groter dan een openbare sleutel mag zijn om bewaard te worden"
 
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the account has no Outbox"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/sync.rs
 #, fuzzy
@@ -21793,6 +21823,11 @@ msgstr "het bericht heeft geen geadresseerden"
 #, fuzzy
 msgid "the message has too many recipients"
 msgstr "het bericht heeft te veel geadresseerden"
+
+#. what a command says
+#: crates/engine/src/cmd/compose.rs
+msgid "the message is only partly downloaded"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/format.rs crates/engine/src/cmd/picture.rs
@@ -22515,6 +22550,11 @@ msgstr "dit concept is nog niet gedownload: open het zodra u online bent en bewe
 #, fuzzy
 msgid "this file holds a private key, which isn't imported as a Public key: import your own keys in File › Options › Security"
 msgstr "dit bestand bevat een privésleutel, die niet als openbare sleutel wordt geïmporteerd: importeer uw eigen sleutels in Bestand › Opties › Beveiliging"
+
+#. name
+#: crates/engine/src/cmd/rules.rs
+msgid "this forwarding rule runs on this computer"
+msgstr ""
 
 #. what a command says
 #: crates/engine/src/import_pst.rs
