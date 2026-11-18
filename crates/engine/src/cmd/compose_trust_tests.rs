@@ -137,3 +137,35 @@ fn autocomplete_does_not_trust_junk_or_a_sender_s_date() {
     assert!(future < recent, "{found:?}");
     // (clamped to now, it is still later than an hour ago, but never before somebody written to.)
 }
+
+#[test]
+fn autocomplete_weights_sent_frequency_and_recency_including_saved_contacts() {
+    use mailcraft_model::{Contact, Labeled};
+
+    let mut s = session();
+    let me = Address::new("Avery", "avery@lumen.example");
+    let old = Address::new("Zandra Old", "old@example.org");
+    let frequent = Address::new("Former Display Name", "frequent@example.org");
+    let recent = Address::new("Zandra Recent", "recent@example.org");
+    for (name, email, favorite) in [
+        ("Zandra Frequent", "frequent@example.org", false),
+        ("Zandra Unused", "unused@example.org", false),
+        ("Zandra Favorite", "favorite@example.org", true),
+    ] {
+        s.mailbox.add_contact(Contact { display_name: name.into(), emails: vec![Labeled::new("work", email)], favorite, ..Default::default() });
+    }
+    for days in [10, 15] {
+        add(&mut s, FolderKind::Sent, me.clone(), vec![frequent.clone()], now() - days * 86_400);
+    }
+    add(&mut s, FolderKind::Sent, me.clone(), vec![recent], now());
+    // Case variants and duplicate recipients contribute only once per message.
+    let duplicated = vec![old, Address::new("Zandra Old", "OLD@example.org")];
+    add(&mut s, FolderKind::Sent, me, duplicated, now() - 29 * 86_400);
+
+    let result = run(&mut s, "compose.suggest", json!({"query": "zandra", "limit": 5}));
+    let found = result["suggestions"].as_array().unwrap();
+    let emails: Vec<_> = found.iter().map(|entry| entry["email"].as_str().unwrap().to_ascii_lowercase()).collect();
+    assert_eq!(emails, ["favorite@example.org", "frequent@example.org", "recent@example.org", "old@example.org", "unused@example.org"]);
+    assert_eq!(found[1]["name"], "Zandra Frequent");
+    assert_eq!(found[1]["contact"], true);
+}

@@ -74,7 +74,7 @@ pub fn specs() -> Vec<CommandSpec> {
             .when_writing(needs_compose),
         CommandSpec::new("compose.suggest", "Suggest Recipients", "Message › Names", suggest_command)
             .pure()
-            .params(r#"{"query": string, "limit"?: 1-20} — answers who the start of a name or address could be: contacts first, then people mail was exchanged with, the latest first"#),
+            .params(r#"{"query": string, "limit"?: 1-20} — answers who the start of a name or address could be: favorites first, then sent recipients ranked by frequency and recency, followed by other contacts and correspondents"#),
         CommandSpec::new("compose.replyTo", "Direct Replies To", "Options › More Options", reply_to)
             .pure()
             .params(r#"{"value": string} — the addresses replies to the message being written go to (its `Reply-To` line), separated by `;` or `,`, at most 20; "" sends replies to the sender again. Each must be an e-mail address"#)
@@ -1765,72 +1765,92 @@ impl Typed {
     }
 }
 
-/// Who `query` (the start of a name, of a word in it, or of an address) could be: contacts first,
-/// then the people mail was exchanged with, the latest first, matched as [`Typed::fits`] says. The
-/// owner's own addresses and addresses that don't look like one are left out. One pass over the
-/// mailbox, so it can run on every key press.
+/// Who matches the start of a name, a word in it, or an address. Favorites come first, then
+/// people the owner has written to, weighted by frequency and recency. The address book and
+/// the most recent incoming correspondents supply the remaining suggestions.
 pub fn suggest(s: &Session, query: &str, limit: usize) -> Vec<Suggestion> {
+    let mailbox = &s.mailbox;
+    let now = s.now();
+    use std::collections::{HashMap, HashSet};
+
     let Some(typed) = Typed::new(query) else { return Vec::new() };
     let limit = limit.clamp(1, 20);
-    let fits = |name: &str, email: &str| typed.fits(name, email);
-    let own: Vec<String> = s.mailbox.accounts.iter().map(|a| a.email.trim().to_lowercase()).filter(|e| !e.is_empty()).collect();
-    let mut seen: std::collections::HashSet<String> = own.into_iter().collect();
-    let mut out: Vec<Suggestion> = Vec::new();
-    let mut people: Vec<&std::sync::Arc<mailcraft_model::Contact>> = s.mailbox.contacts.values().collect();
-    people.sort_by_cached_key(|c| (!c.favorite, c.name().to_lowercase()));
-    for c in people {
+    let own: HashSet<String> = mailbox.accounts.iter().map(|a| a.email.trim().to_lowercase()).collect();
+    let mut candidates = HashMap::new();
+    let mut contacts: Vec<_> = mailbox.contacts.values().collect();
+    contacts.sort_by_cached_key(|c| (!c.favorite, c.name().to_lowercase(), c.id));
+    for c in contacts {
         let name = c.name();
         for e in &c.emails {
             let email = e.value.trim();
-            if mailcraft_model::Address::new("", email).is_valid() && fits(&name, email) && seen.insert(email.to_lowercase()) {
-                out.push(Suggestion { name: name.clone(), email: email.to_string(), contact: true });
-            }
-        }
-    }
-    if out.len() < limit {
-        // Whoever wrote, or was written to: each address once, as it was last seen.
-        // A sender writes the date, the From line and the folder rules put mail in Junk E-mail:
-        // mail there is not a source, a date after now counts as now, and an address the owner
-        // has written to (Sent Items) ranks above one that only wrote.
-        let (junk, sent): (Vec<Id>, Vec<Id>) = {
-            let ids = |keep: &dyn Fn(&mailcraft_model::Folder) -> bool| s.mailbox.folders.iter().filter(|f| keep(f)).map(|f| f.id).collect();
-            (ids(&|f| s.mailbox.in_junk(f.id)), ids(&|f| f.kind == FolderKind::Sent))
-        };
-        let now = s.now();
-        let mut recent: std::collections::HashMap<String, (bool, i64, &mailcraft_model::Address)> = std::collections::HashMap::new();
-        // A name and an address are matched once, however many messages carry them.
-        let mut matched: std::collections::HashMap<(&str, &str), bool> = std::collections::HashMap::new();
-        for m in s.mailbox.messages.values().filter(|m| !junk.contains(&m.folder)) {
-            let written = sent.contains(&m.folder);
-            let date = m.date.min(now);
-            let people: Vec<(&mailcraft_model::Address, bool)> = if written {
-                m.to.iter().chain(&m.cc).chain(&m.bcc).map(|a| (a, true)).collect()
-            } else {
-                std::iter::once(&m.from).chain(&m.to).chain(&m.cc).map(|a| (a, false)).collect()
-            };
-            for (a, to) in people {
-                if !*matched.entry((a.name.as_str(), a.email.as_str())).or_insert_with(|| fits(&a.name, &a.email)) {
-                    continue;
-                }
-                let key = a.email.trim().to_lowercase();
-                if !seen.contains(&key) && a.is_valid() {
-                    let known = recent.entry(key).or_insert((to, date, a));
-                    if (to, date) >= (known.0, known.1) {
-                        *known = (to || known.0, date, a);
-                    }
+            if typed.fits(&name, email) && Address::new("", email).is_valid() {
+                let key = email.to_lowercase();
+                if !own.contains(&key) {
+                    candidates.entry(key).or_insert((
+                        c.favorite,
+                        false,
+                        i64::MIN,
+                        Suggestion { name: name.clone(), email: email.to_string(), contact: true },
+                    ));
                 }
             }
         }
-        let mut recent: Vec<(bool, i64, &mailcraft_model::Address)> = recent.into_values().collect();
-        recent.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| b.1.cmp(&a.1)).then_with(|| a.2.email.cmp(&b.2.email)));
-        out.extend(recent.into_iter().map(|(_, _, a)| Suggestion {
-            name: a.name.trim().to_string(),
-            email: a.email.trim().to_string(),
-            contact: false,
-        }));
     }
-    out.truncate(limit);
-    out
+
+    let junk: HashSet<_> = mailbox.folders.iter().filter(|f| mailbox.in_junk(f.id)).map(|f| f.id).collect();
+    let sent: HashSet<_> = mailbox.folders.iter().filter(|f| f.kind == FolderKind::Sent).map(|f| f.id).collect();
+    let mut usage: HashMap<String, (Id, u64, i64)> = HashMap::new();
+    let mut matched: HashMap<(&str, &str), bool> = HashMap::new();
+    for (&id, m) in mailbox.messages.iter().filter(|(_, m)| !junk.contains(&m.folder)) {
+        let written = sent.contains(&m.folder);
+        let date = m.date.min(now);
+        // Each sent message contributes once per address. A send today weighs roughly twice
+        // a send from a month ago. Incoming messages cannot inflate the frequency signal.
+        let age_days = (now.saturating_sub(date) / 86_400) as u64;
+        let weight = (30 * 1024 / (30 + age_days)).max(1);
+        let extra = if written { None } else { Some(&m.from) };
+        let bcc = if written { m.bcc.as_slice() } else { &[] };
+        for a in extra.into_iter().chain(&m.to).chain(&m.cc).chain(bcc) {
+            let fits = *matched.entry((&a.name, &a.email)).or_insert_with(|| typed.fits(&a.name, &a.email));
+            if !written && !fits {
+                continue;
+            }
+            let key = a.email.trim().to_lowercase();
+            if own.contains(&key) || !a.is_valid() {
+                continue;
+            }
+            if written {
+                let entry = usage.entry(key.clone()).or_insert((id, weight, date));
+                if entry.0 != id {
+                    *entry = (id, entry.1.saturating_add(weight), entry.2.max(date));
+                }
+            }
+            if !fits {
+                continue;
+            }
+            let candidate = candidates.entry(key).or_insert_with(|| {
+                (false, written, date, Suggestion { name: a.name.trim().to_string(), email: a.email.trim().to_string(), contact: false })
+            });
+            let name = a.name.trim();
+            let email = a.email.trim();
+            if !candidate.3.contact
+                && ((written, date) > (candidate.1, candidate.2)
+                    || ((written, date) == (candidate.1, candidate.2) && (name, email) < (candidate.3.name.as_str(), candidate.3.email.as_str())))
+            {
+                *candidate = (false, written, date, Suggestion { name: name.to_string(), email: email.to_string(), contact: false });
+            }
+        }
+    }
+    let mut ranked: Vec<_> = candidates
+        .into_iter()
+        .map(|(key, (favorite, _, date, candidate))| {
+            let (_, score, last_sent) = usage.get(&key).copied().unwrap_or((0, 0, date));
+            let rank = (favorite, score, score == 0 && candidate.contact, last_sent);
+            (rank, candidate.name.to_lowercase(), key, candidate)
+        })
+        .collect();
+    ranked.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)).then_with(|| a.2.cmp(&b.2)));
+    ranked.into_iter().take(limit).map(|(_, _, _, candidate)| candidate).collect()
 }
 
 fn suggest_command(s: &mut Session, v: &Value) -> CmdResult {
