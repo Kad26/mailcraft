@@ -13273,6 +13273,11 @@ msgid "Remove local data"
 msgstr "Helyi adatok eltávolítása"
 
 #. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Remove quoted original"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/send_later.rs
 #, fuzzy
 msgid "Remove the delay"
@@ -24300,6 +24305,11 @@ msgstr "nincs szabad név a helyi mappában"
 #, fuzzy
 msgid "there is no free name for the copy of the mailbox beside it"
 msgstr "nincs szabad fájlnév a postafiók mellett létrehozandó másolathoz"
+
+#. what a command says
+#: crates/engine/src/cmd/format.rs
+msgid "there is no quoted original in the message"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/search_server.rs

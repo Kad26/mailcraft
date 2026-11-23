@@ -133,3 +133,25 @@ fn a_delete_pressed_plain_runs_the_ordinary_delete() {
         "it went to Deleted Items"
     );
 }
+
+#[test]
+fn delete_while_forwarding_in_the_reading_pane_keeps_the_original() {
+    let (mut w, id) = selected();
+    let folder = w.state().session.mailbox.message(id).unwrap().folder;
+    w.state_mut().execute("mail.forward", json!({"id": id})).unwrap();
+    w.run_steps(3);
+    assert!(crate::windows::compose_window::pane_compose(w.state()).is_some());
+    w.ctx.memory_mut(|m| {
+        if let Some(focus) = m.focused() {
+            m.surrender_focus(focus);
+        }
+    });
+    assert!(!w.ctx.egui_wants_keyboard_input());
+
+    w.input_mut().events.push(Event::Key { key: Key::Delete, physical_key: None, pressed: true, repeat: false, modifiers: Modifiers::NONE });
+    w.step();
+    shift_delete(&mut w);
+
+    assert_eq!(testing::dialog(&w), None);
+    assert_eq!(w.state().session.mailbox.message(id).unwrap().folder, folder);
+}

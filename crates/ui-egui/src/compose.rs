@@ -216,7 +216,7 @@ impl Shown {
                 .iter()
                 .map(|a| (mailcraft_engine::opening::file_name(&a.name), mailcraft_model::size_label_in(crate::i18n::current(), a.size() as u64)))
                 .collect(),
-            quote: c.quote.is_some(),
+            quote: c.visible_quote().is_some(),
         })
     }
 }
@@ -302,6 +302,10 @@ pub(crate) fn show_in(app: &mut MailApp, ui: &mut Ui, window: Option<u64>, keybo
             signature(app, ui);
             if c.quote {
                 ui.add_space(8.0);
+                if ui.button(tl!("Remove quoted original")).clicked() {
+                    let _ = app.run("compose.delete", json!({"quoteOnly": true}));
+                    ui.memory_mut(|m| m.request_focus(editor::id(app)));
+                }
                 // The original senses the pointer over all of the view it is drawn in: kept to
                 // below where it begins, so that it doesn't lie over the owner's text and take a
                 // click meant for it (the body then never got the keyboard back, #158).

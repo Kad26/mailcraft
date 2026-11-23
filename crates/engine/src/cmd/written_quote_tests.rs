@@ -388,3 +388,25 @@ fn a_reply_to_the_reply_carries_the_pictures_again_once_each() {
     assert_eq!(ids.iter().filter(|c| **c == "logo@rowan.example").count(), 1, "{ids:?}");
     assert_eq!(ids.len(), 2, "{ids:?}");
 }
+
+#[test]
+fn removing_only_the_forward_quote_keeps_the_note_and_ordinary_attachment() {
+    let mut s = session();
+    let id = in_inbox(&mut s, chart_html());
+    run(&mut s, "mail.forward", json!({"id": id}));
+    run(&mut s, "compose.set", json!({"body": "My note"}));
+    let before = compose(&s).visible_quote().unwrap().clone();
+
+    run(&mut s, "compose.delete", json!({"quoteOnly": true}));
+    assert!(compose(&s).visible_quote().is_none());
+    assert_eq!(compose(&s).body.plain(), "My note");
+    run(&mut s, "compose.undo", json!({}));
+    assert_eq!(compose(&s).visible_quote(), Some(&before));
+    run(&mut s, "compose.redo", json!({}));
+
+    let d = run(&mut s, "compose.saveDraft", json!({}))["draft"].as_u64().unwrap();
+    let draft = s.mailbox.message(d).unwrap();
+    assert_eq!(draft.body.text, "My note");
+    assert!(!draft.body.html.as_ref().unwrap().contains(QUOTE_MARK));
+    assert_eq!(draft.attachments.iter().map(|a| a.name.as_str()).collect::<Vec<_>>(), ["logo.png", "figures.pdf"]);
+}

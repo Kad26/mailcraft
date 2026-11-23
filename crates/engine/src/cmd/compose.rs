@@ -1525,8 +1525,8 @@ fn build_as(s: &Session, c: &Compose, strict: bool, message_id: Option<&str>) ->
 /// The original quoted below follows it, in both forms.
 fn body_of(c: &Compose, message_id: &str) -> Body {
     let text = c.body.text();
-    let quote_text = c.quote.as_ref().map_or("", |q| q.text.as_str());
-    let quote_html = c.quote.as_ref().map(|q| q.html.as_str());
+    let quote_text = c.visible_quote().map_or("", |q| q.text.as_str());
+    let quote_html = c.visible_quote().map(|q| q.html.as_str());
     // The pictures the owner put in the text (#547): `<img>`s of the HTML, `[picture]` in words.
     let img = |id: u32| c.pictures.iter().find(|p| p.id == id).map(|p| Img::of(p, picture_cid(p, message_id)));
     let say = |id: u32| {
@@ -1614,7 +1614,7 @@ fn attachments_of(c: &Compose, message_id: &str) -> Vec<Attachment> {
         }));
     }
     if c.format == BodyFormat::Html
-        && let Some(q) = &c.quote
+        && let Some(q) = c.visible_quote()
     {
         all.extend(q.pictures.iter().map(|p| Attachment { inline: true, ..p.clone() }));
     }

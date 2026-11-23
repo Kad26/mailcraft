@@ -13297,6 +13297,11 @@ msgid "Remove local data"
 msgstr "Odstranit místní data"
 
 #. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Remove quoted original"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/send_later.rs
 #, fuzzy
 msgid "Remove the delay"
@@ -24358,6 +24363,11 @@ msgstr "pro místní složku není volný název"
 #, fuzzy
 msgid "there is no free name for the copy of the mailbox beside it"
 msgstr "pro kopii poštovní schránky vedle ní není volný název"
+
+#. what a command says
+#: crates/engine/src/cmd/format.rs
+msgid "there is no quoted original in the message"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/search_server.rs

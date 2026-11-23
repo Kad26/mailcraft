@@ -1,0 +1,1 @@
+- Remove the quoted original from a reply or forward while keeping the written text and ordinary attachments. Delete in the inline composer leaves the message list alone.

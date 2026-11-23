@@ -13282,6 +13282,11 @@ msgid "Remove local data"
 msgstr "Quitar los datos locales"
 
 #. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Remove quoted original"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/send_later.rs
 #, fuzzy
 msgid "Remove the delay"
@@ -24305,6 +24310,11 @@ msgstr "no hay ningún nombre libre para una carpeta local"
 #, fuzzy
 msgid "there is no free name for the copy of the mailbox beside it"
 msgstr "no hay ningún nombre libre para la copia del buzón junto a él"
+
+#. what a command says
+#: crates/engine/src/cmd/format.rs
+msgid "there is no quoted original in the message"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/search_server.rs

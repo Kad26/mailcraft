@@ -51,6 +51,7 @@ impl Selection {
 struct Step {
     text: RichText,
     selection: Selection,
+    quote_removed: bool,
     /// A picture's width this step puts back, kept beside the text by its holder.
     mark: Option<Mark>,
 }
@@ -74,6 +75,8 @@ pub struct Mark {
 pub struct RichBody {
     text: RichText,
     selection: Selection,
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    quote_removed: bool,
     /// The style the next typed character takes, when it was chosen with nothing selected.
     #[serde(skip)]
     pending: Option<Style>,
@@ -100,6 +103,8 @@ enum RawBody {
         text: RichText,
         #[serde(default)]
         selection: Selection,
+        #[serde(default)]
+        quote_removed: bool,
     },
 }
 
@@ -107,9 +112,9 @@ impl<'de> Deserialize<'de> for RichBody {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<RichBody, D::Error> {
         Ok(match RawBody::deserialize(d)? {
             RawBody::Plain(text) => RichBody::from_plain(&text),
-            RawBody::Rich { text, selection } => {
+            RawBody::Rich { text, selection, quote_removed } => {
                 let selection = selection.clamp(text.len());
-                RichBody { text, selection, ..RichBody::default() }
+                RichBody { text, selection, quote_removed, ..RichBody::default() }
             }
         })
     }
@@ -218,7 +223,7 @@ impl RichBody {
     }
 
     fn push_step(&mut self, mark: Option<Mark>) {
-        self.undo.push(Step { text: self.text.clone(), selection: self.selection, mark });
+        self.undo.push(Step { text: self.text.clone(), selection: self.selection, quote_removed: self.quote_removed, mark });
         self.redo.clear();
         let mut kept: usize = self.undo.iter().map(|s| s.text.len()).sum();
         // Snapshots share a table's immutable allocation, so charge it once across the history.
@@ -645,6 +650,18 @@ impl RichBody {
         Ok(())
     }
 
+    /// Whether a quoted original has been removed from this body.
+    pub fn quote_removed(&self) -> bool {
+        self.quote_removed
+    }
+
+    /// Remove the quote as an undoable edit while keeping the written text.
+    pub fn remove_quote(&mut self) {
+        self.push_undo();
+        self.quote_removed = true;
+        self.typing = None;
+    }
+
     /// Back one step. Whether there was one. A step's [`Mark`] is left as it is: see
     /// [`RichBody::undo_with`].
     pub fn undo(&mut self) -> bool {
@@ -678,6 +695,11 @@ impl RichBody {
         let mark = step.mark.map(swap);
         self.pending = None;
         self.typing = None;
-        Step { text: std::mem::replace(&mut self.text, step.text), selection: std::mem::replace(&mut self.selection, step.selection), mark }
+        Step {
+            text: std::mem::replace(&mut self.text, step.text),
+            selection: std::mem::replace(&mut self.selection, step.selection),
+            quote_removed: std::mem::replace(&mut self.quote_removed, step.quote_removed),
+            mark,
+        }
     }
 }

@@ -786,6 +786,11 @@ pub(crate) enum Saving {
 }
 
 impl Compose {
+    /// The original still included in the message as it is being edited.
+    pub fn visible_quote(&self) -> Option<&Quote> {
+        self.quote.as_ref().filter(|_| !self.body.quote_removed())
+    }
+
     /// Whether the signature in the message is still the one that went in.
     pub fn signature_unedited(&self) -> bool {
         self.signature.as_ref().is_some_and(|inserted| self.body.text().signature().as_ref() == Some(&inserted.text))

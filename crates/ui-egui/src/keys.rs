@@ -753,6 +753,7 @@ pub fn global_shortcuts(app: &mut MailApp, ctx: &egui::Context) {
     // An open list (a menu, a date field's calendar) keeps the keys that move in it, with Shift or
     // Ctrl too: the message list doesn't move under it (#329).
     let list = egui::Popup::is_any_open(ctx);
+    let composing_in_pane = crate::windows::compose_window::pane_compose(app).is_some();
     for e in events {
         // A key that opened a dialog (Delete's question) leaves the frame's other keys to it (#503).
         if !takes_commands(app) {
@@ -765,6 +766,7 @@ pub fn global_shortcuts(app: &mut MailApp, ctx: &egui::Context) {
         // the text fields' cut).
         if matches!(e, egui::Event::Cut)
             && !typing
+            && !composing_in_pane
             && ctx.input(|i| i.modifiers.shift && !i.modifiers.ctrl && !i.modifiers.command && !i.modifiers.alt)
             && let Some(id) = resolve(app, "Shift+Delete").and_then(|id| window_command(app, id))
         {
@@ -772,6 +774,9 @@ pub fn global_shortcuts(app: &mut MailApp, ctx: &egui::Context) {
             continue;
         }
         let egui::Event::Key { key, pressed: true, modifiers, .. } = e else { continue };
+        if composing_in_pane && key == Key::Delete {
+            continue;
+        }
         // Escape alone is handed out above (an open menu keeps it, to close).
         if key == Key::Escape && modifiers.is_none() {
             continue;

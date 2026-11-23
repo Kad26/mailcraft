@@ -868,3 +868,19 @@ fn an_agents_pop_out_opens_behind() {
     assert_ne!(crate::keys::active(&h.ctx), crate::windows::embedded_layer(w));
     assert_eq!(h.state().session.compose_id(), Some(mine));
 }
+
+#[test]
+fn remove_quoted_original_button_keeps_written_text() {
+    let mut h = window(app());
+    let id = h.state().session.mailbox.messages.values().find(|m| m.subject == "Your October invoice is ready").unwrap().id;
+    owner(&mut h, "mail.forward", json!({"id": id}));
+    owner(&mut h, "compose.set", json!({"body": "My note"}));
+
+    h.get_by_label("Remove quoted original").click();
+    h.run_steps(3);
+
+    let compose = h.state().session.compose.as_ref().unwrap();
+    assert!(compose.visible_quote().is_none());
+    assert_eq!(compose.body.plain(), "My note");
+    assert_eq!(compose.attachments.len(), 1);
+}

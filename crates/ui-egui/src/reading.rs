@@ -411,7 +411,7 @@ pub(crate) fn show_quote(app: &mut MailApp, ui: &mut Ui) {
 /// written (the windows of several share the context), and let go of with it.
 fn quote_message(app: &MailApp, ctx: &egui::Context) -> Option<Arc<Message>> {
     let c = app.session.compose.as_ref()?;
-    let quote = c.quote.as_ref()?;
+    let quote = c.visible_quote()?;
     let key = quotes_key();
     let mut kept: Vec<(u64, Arc<Message>)> = ctx.data(|d| d.get_temp(key)).unwrap_or_default();
     let source = c.source.and_then(|id| app.session.mailbox.messages.get(&id));

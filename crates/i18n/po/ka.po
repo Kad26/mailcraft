@@ -13231,6 +13231,11 @@ msgid "Remove local data"
 msgstr "ლოკალური მონაცემების წაშლა"
 
 #. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Remove quoted original"
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/send_later.rs
 #, fuzzy
 msgid "Remove the delay"
@@ -24222,6 +24227,11 @@ msgstr "ლოკალური საქაღალდისთვის თ�
 #, fuzzy
 msgid "there is no free name for the copy of the mailbox beside it"
 msgstr "საფოსტო ყუთის გვერდით მდებარე ასლისთვის თავისუფალი სახელი არ მოიძებნა"
+
+#. what a command says
+#: crates/engine/src/cmd/format.rs
+msgid "there is no quoted original in the message"
+msgstr ""
 
 #. why a command can't run
 #: crates/engine/src/cmd/search_server.rs

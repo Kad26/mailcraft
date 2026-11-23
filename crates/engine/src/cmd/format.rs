@@ -32,7 +32,7 @@ pub fn specs() -> Vec<CommandSpec> {
             .when_writing(needs_doc),
         CommandSpec::new("compose.delete", "Delete Text", "Message", delete)
             .pure()
-            .params(r#"{"from"?: number, "to"?: number, "forward"?: bool} (default: the selection, else the character before the caret, or after it with forward)"#)
+            .params(r#"{"from"?: number, "to"?: number, "forward"?: bool, "quoteOnly"?: bool} (default: the selection, else the character before the caret, or after it with forward; quoteOnly removes only the quoted original)"#)
             .when_writing(needs_doc),
         CommandSpec::new("compose.undo", "Undo Typing", "Message", undo).pure().when_writing(|s| match s.doc() {
             None => Some("no message is being written"),
@@ -211,6 +211,18 @@ fn replace_text(s: &mut Session, v: &Value) -> CmdResult {
 }
 
 fn delete(s: &mut Session, v: &Value) -> CmdResult {
+    if p::bool(v, "quoteOnly").unwrap_or(false) {
+        if s.signature_edit.is_some() || v.get("from").is_some() || v.get("to").is_some() {
+            return Err(bad("removing the quote applies to the message body"));
+        }
+        let c = compose_mut(s)?;
+        if c.visible_quote().is_none() {
+            return Err(fail("there is no quoted original in the message"));
+        }
+        c.body.remove_quote();
+        c.dirty = true;
+        return Ok(state(s));
+    }
     let forward = p::bool(v, "forward").unwrap_or(false);
     let named = position(v, "from")?.is_some() || position(v, "to")?.is_some();
     edit(s, v, |b| {
