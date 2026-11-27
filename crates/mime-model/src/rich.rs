@@ -390,6 +390,12 @@ pub fn from_html_with_pictures(html: &str, claim: &mut dyn FnMut(&ImgRef) -> Opt
     read(&mark_pictures(html, claim), true, true)
 }
 
+/// An opt-in editable copy of received HTML, with supported formatting, tables and
+/// claimed inline pictures. Links follow the received-mail policy.
+pub fn from_html_for_editing(html: &str, claim: &mut dyn FnMut(&ImgRef) -> Option<u32>) -> RichText {
+    read_with_links(&mark_pictures(html, claim), true, true, false)
+}
+
 /// `html` with each picture `claim` takes written as `OBJECT id OBJECT` in its place, and no
 /// other `OBJECT` (nothing but this puts one in the text).
 fn mark_pictures(html: &str, claim: &mut dyn FnMut(&ImgRef) -> Option<u32>) -> String {
@@ -503,8 +509,12 @@ fn img_ref(attrs: &str) -> Option<ImgRef> {
 }
 
 fn read(html: &str, pictures: bool, tables: bool) -> RichText {
+    read_with_links(html, pictures, tables, pictures)
+}
+
+fn read_with_links(html: &str, pictures: bool, tables: bool, own: bool) -> RichText {
     // The look and the text only: pictures written into the HTML are not decoded for this.
-    let blocks = if tables { mailcraft_html::parse_text_with_tables(html, pictures.then_some(safe_link)) } else { mailcraft_html::parse_text(html) };
+    let blocks = if tables { mailcraft_html::parse_text_with_tables(html, own.then_some(safe_link)) } else { mailcraft_html::parse_text(html) };
     let read = html.len().min(mailcraft_html::MAX_INPUT_WITH_PICTURES);
     let copies = read.saturating_mul(COPY_ALLOWANCE).saturating_add(COPY_FLOOR);
     let mut reader = Reader { out: Vec::new(), pictures, copies, tables };

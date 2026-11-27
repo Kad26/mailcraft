@@ -5414,6 +5414,11 @@ msgstr "ღონისძიების რედაქტირება"
 msgid "Edit Message"
 msgstr "წერილის რედაქტირება"
 
+#. command label, interface
+#: crates/engine/src/cmd/compose.rs crates/ui-egui/src/compose.rs
+msgid "Edit Original"
+msgstr ""
+
 #. command label
 #: crates/engine/src/cmd/signature.rs
 #, fuzzy
@@ -5457,7 +5462,7 @@ msgid "Edit task"
 msgstr "დავალების რედაქტირება"
 
 #. ribbon, ribbon location
-#: crates/engine/src/cmd/edit.rs crates/ui-egui/src/ribbon.rs
+#: crates/engine/src/cmd/compose.rs crates/engine/src/cmd/edit.rs crates/ui-egui/src/ribbon.rs
 #, fuzzy
 msgid "Editing"
 msgstr "რედაქტირება"
@@ -9293,6 +9298,11 @@ msgid "Make it repeat…"
 msgstr "გამეორების დაყენება…"
 
 #. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Make the original editable. Supported formatting is kept; complex layout is simplified."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/signatures.rs
 #, fuzzy
 msgid "Make the signature from these details"
@@ -11686,6 +11696,11 @@ msgstr "უფრო ძველი"
 msgid "Oldest on top"
 msgstr "ჯერ უძველესი"
 
+#. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Omit unavailable pictures when editing the original"
+msgstr ""
+
 #. android, interface
 #: apps/mailcraft-android/app/src/main/kotlin/work/mailcraft/android/PicturesSettings.kt crates/ui-egui/src/forms.rs
 #, fuzzy
@@ -13610,6 +13625,11 @@ msgstr "MailCraft-ის მონაცემების წაშლა ა�
 #, fuzzy
 msgid "Remove Older Mail from This Computer"
 msgstr "ძველი ფოსტის წაშლა ამ კომპიუტერიდან"
+
+#. command label, interface
+#: crates/engine/src/cmd/compose.rs crates/ui-egui/src/compose.rs
+msgid "Remove Original"
+msgstr ""
 
 #. command label, interface
 #: crates/engine/src/cmd/signature.rs crates/ui-egui/src/signatures.rs
@@ -23441,7 +23461,7 @@ msgid "no message being written has the id {id}"
 msgstr "დასაწერ წერილებში id {id} არცერთს არ აქვს"
 
 #. what a command says, why a command can't run
-#: crates/engine/src/cmd/compose.rs crates/engine/src/cmd/edit.rs crates/engine/src/cmd/ews_mail.rs crates/engine/src/cmd/followup.rs crates/engine/src/cmd/format.rs crates/engine/src/cmd/mod.rs crates/engine/src/cmd/picture.rs crates/engine/src/cmd/send_later.rs crates/engine/src/cmd/writing_tools.rs
+#: crates/engine/src/cmd/compose.rs crates/engine/src/cmd/compose/quote_edit.rs crates/engine/src/cmd/edit.rs crates/engine/src/cmd/ews_mail.rs crates/engine/src/cmd/followup.rs crates/engine/src/cmd/format.rs crates/engine/src/cmd/mod.rs crates/engine/src/cmd/picture.rs crates/engine/src/cmd/send_later.rs crates/engine/src/cmd/writing_tools.rs
 #, fuzzy
 msgid "no message is being written"
 msgstr "არცერთი წერილი არ იწერება"
@@ -23987,6 +24007,11 @@ msgstr "საჭიროა შესვლა"
 #, fuzzy
 msgid "size is {min} KB to {max} KB"
 msgstr "ზომა არის {min} KB-დან {max} KB-მდე"
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "some original pictures cannot be kept in editable text; the original is still intact"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/forms/junk.rs
@@ -24555,6 +24580,11 @@ msgstr "წერილს დანართი {index} არ აქვს"
 msgid "the message has no attachments to save"
 msgstr "წერილს შესანახი დანართები არ აქვს"
 
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the message has no original to edit"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/send.rs crates/proto/src/smtp.rs
 #, fuzzy
@@ -24596,6 +24626,21 @@ msgstr "ქსელმა იქამდე ვერ მიაღწია"
 #, fuzzy
 msgid "the occurrence was not changed; nothing was moved"
 msgstr "შემთხვევა არ შეცვლილა; არაფერი გადატანილა"
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the original has no editable text"
+msgstr ""
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the original has pictures that cannot be kept in editable text"
+msgstr ""
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the original is too large to convert to editable text"
+msgstr ""
 
 #. what a command says
 #: crates/model/src/mailbox.rs

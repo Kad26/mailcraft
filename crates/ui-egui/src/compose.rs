@@ -19,6 +19,8 @@ mod picture_size;
 #[cfg(test)]
 mod picture_tests;
 #[cfg(test)]
+mod quote_edit_tests;
+#[cfg(test)]
 mod several_tests;
 #[cfg(test)]
 mod tests;
@@ -302,6 +304,22 @@ pub(crate) fn show_in(app: &mut MailApp, ui: &mut Ui, window: Option<u64>, keybo
             signature(app, ui);
             if c.quote {
                 ui.add_space(8.0);
+                let options_id = editor::id(app).with("omit-original-pictures");
+                let mut omit = ui.ctx().data(|data| data.get_temp::<bool>(options_id).unwrap_or_default());
+                if ui.checkbox(&mut omit, tl!("Omit unavailable pictures when editing the original")).changed() {
+                    ui.ctx().data_mut(|data| data.insert_temp(options_id, omit));
+                }
+                if ui
+                    .button(tl!("Edit Original"))
+                    .on_hover_text(tl!("Make the original editable. Supported formatting is kept; complex layout is simplified."))
+                    .clicked()
+                    && app.run("compose.quoteAsText", json!({"omitUnavailablePictures":omit})).is_ok()
+                {
+                    app.want_body_focus();
+                }
+                if ui.button(tl!("Remove Original")).clicked() {
+                    let _ = app.run("compose.removeQuote", json!({}));
+                }
                 // The original senses the pointer over all of the view it is drawn in: kept to
                 // below where it begins, so that it doesn't lie over the owner's text and take a
                 // click meant for it (the body then never got the keyboard back, #158).

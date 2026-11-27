@@ -5422,6 +5422,11 @@ msgstr "Esemény szerkesztése"
 msgid "Edit Message"
 msgstr "Üzenet szerkesztése"
 
+#. command label, interface
+#: crates/engine/src/cmd/compose.rs crates/ui-egui/src/compose.rs
+msgid "Edit Original"
+msgstr ""
+
 #. command label
 #: crates/engine/src/cmd/signature.rs
 #, fuzzy
@@ -5465,7 +5470,7 @@ msgid "Edit task"
 msgstr "Feladat szerkesztése"
 
 #. ribbon, ribbon location
-#: crates/engine/src/cmd/edit.rs crates/ui-egui/src/ribbon.rs
+#: crates/engine/src/cmd/compose.rs crates/engine/src/cmd/edit.rs crates/ui-egui/src/ribbon.rs
 #, fuzzy
 msgid "Editing"
 msgstr "Szerkesztés"
@@ -9313,6 +9318,11 @@ msgid "Make it repeat…"
 msgstr "Ismétlődés beállítása…"
 
 #. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Make the original editable. Supported formatting is kept; complex layout is simplified."
+msgstr ""
+
+#. interface
 #: crates/ui-egui/src/signatures.rs
 #, fuzzy
 msgid "Make the signature from these details"
@@ -11713,6 +11723,11 @@ msgstr "Idősebb"
 msgid "Oldest on top"
 msgstr "A legrégebbi a tetején"
 
+#. interface
+#: crates/ui-egui/src/compose.rs
+msgid "Omit unavailable pictures when editing the original"
+msgstr ""
+
 #. android, interface
 #: apps/mailcraft-android/app/src/main/kotlin/work/mailcraft/android/PicturesSettings.kt crates/ui-egui/src/forms.rs
 #, fuzzy
@@ -13652,6 +13667,11 @@ msgstr "Távolítsa el MailCraft adatait erről a számítógépről…"
 #, fuzzy
 msgid "Remove Older Mail from This Computer"
 msgstr "Az idősebb levél eltávolítása ebből a számítógépből"
+
+#. command label, interface
+#: crates/engine/src/cmd/compose.rs crates/ui-egui/src/compose.rs
+msgid "Remove Original"
+msgstr ""
 
 #. command label, interface
 #: crates/engine/src/cmd/signature.rs crates/ui-egui/src/signatures.rs
@@ -23517,7 +23537,7 @@ msgid "no message being written has the id {id}"
 msgstr "Nincs olyan üzenet, amiben megírnák az azonosító {id}-t."
 
 #. what a command says, why a command can't run
-#: crates/engine/src/cmd/compose.rs crates/engine/src/cmd/edit.rs crates/engine/src/cmd/ews_mail.rs crates/engine/src/cmd/followup.rs crates/engine/src/cmd/format.rs crates/engine/src/cmd/mod.rs crates/engine/src/cmd/picture.rs crates/engine/src/cmd/send_later.rs crates/engine/src/cmd/writing_tools.rs
+#: crates/engine/src/cmd/compose.rs crates/engine/src/cmd/compose/quote_edit.rs crates/engine/src/cmd/edit.rs crates/engine/src/cmd/ews_mail.rs crates/engine/src/cmd/followup.rs crates/engine/src/cmd/format.rs crates/engine/src/cmd/mod.rs crates/engine/src/cmd/picture.rs crates/engine/src/cmd/send_later.rs crates/engine/src/cmd/writing_tools.rs
 #, fuzzy
 msgid "no message is being written"
 msgstr "nincs megnyitva szerkesztésre üzenet"
@@ -24063,6 +24083,11 @@ msgstr "bejelentkezés szükséges"
 #, fuzzy
 msgid "size is {min} KB to {max} KB"
 msgstr "a méret {min} KB és {max} KB között van"
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "some original pictures cannot be kept in editable text; the original is still intact"
+msgstr ""
 
 #. interface
 #: crates/ui-egui/src/forms/junk.rs
@@ -24633,6 +24658,11 @@ msgstr "Az üzenetnek nincs mellékleta {index}"
 msgid "the message has no attachments to save"
 msgstr "az üzenetnek nincs mentendő melléklete"
 
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the message has no original to edit"
+msgstr ""
+
 #. why a mail server couldn't be used
 #: crates/net/src/send.rs crates/proto/src/smtp.rs
 #, fuzzy
@@ -24674,6 +24704,21 @@ msgstr "A csatorna nem tudott odaérni."
 #, fuzzy
 msgid "the occurrence was not changed; nothing was moved"
 msgstr "az előfordulás nem módosult; semmi sem lett áthelyezve"
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the original has no editable text"
+msgstr ""
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the original has pictures that cannot be kept in editable text"
+msgstr ""
+
+#. what a command says
+#: crates/engine/src/cmd/compose/quote_edit.rs
+msgid "the original is too large to convert to editable text"
+msgstr ""
 
 #. what a command says
 #: crates/model/src/mailbox.rs

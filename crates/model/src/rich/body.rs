@@ -53,6 +53,7 @@ struct Step {
     selection: Selection,
     /// A picture's width this step puts back, kept beside the text by its holder.
     mark: Option<Mark>,
+    tag: Option<u64>,
 }
 
 /// The width a picture is shown at, as a step of undo puts it back: the picture is kept beside
@@ -217,8 +218,27 @@ impl RichBody {
         self.typing = None;
     }
 
+    /// Attach a holder's state change to the latest text edit.
+    pub fn tag_edit(&mut self, tag: u64) {
+        if let Some(step) = self.undo.last_mut() {
+            step.tag = Some(tag);
+        }
+    }
+
+    /// Record a holder-only state change in the same undo history as the text.
+    pub fn push_tag(&mut self, tag: u64) {
+        self.push_step(None);
+        self.tag_edit(tag);
+        self.typing = None;
+    }
+
+    /// The holder's state change paired with the next Undo or Redo.
+    pub fn history_tag(&self, redo: bool) -> Option<u64> {
+        (if redo { &self.redo } else { &self.undo }).last().and_then(|step| step.tag)
+    }
+
     fn push_step(&mut self, mark: Option<Mark>) {
-        self.undo.push(Step { text: self.text.clone(), selection: self.selection, mark });
+        self.undo.push(Step { text: self.text.clone(), selection: self.selection, mark, tag: None });
         self.redo.clear();
         let mut kept: usize = self.undo.iter().map(|s| s.text.len()).sum();
         // Snapshots share a table's immutable allocation, so charge it once across the history.
@@ -678,6 +698,11 @@ impl RichBody {
         let mark = step.mark.map(swap);
         self.pending = None;
         self.typing = None;
-        Step { text: std::mem::replace(&mut self.text, step.text), selection: std::mem::replace(&mut self.selection, step.selection), mark }
+        Step {
+            text: std::mem::replace(&mut self.text, step.text),
+            selection: std::mem::replace(&mut self.selection, step.selection),
+            mark,
+            tag: step.tag,
+        }
     }
 }
