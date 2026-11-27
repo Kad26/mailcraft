@@ -246,9 +246,22 @@ fn step(s: &mut Session, redo: bool) -> Result<bool, CmdError> {
     if s.signature_edit.is_none()
         && let Some(c) = s.compose.as_mut()
     {
+        let quote_changed = c.body.history_tag(redo) == Some(super::compose::EDIT_QUOTE_TAG);
         let pictures = &mut c.pictures;
         let swap = |mark| super::picture::swap_width(pictures, mark);
         let done = if redo { c.body.redo_with(swap) } else { c.body.undo_with(swap) };
+        if done && quote_changed {
+            std::mem::swap(&mut c.quote, &mut c.quote_edit_history);
+            if c.quote.is_some() {
+                for part in &c.quote_edit_attachments {
+                    if !c.attachments.contains(part) {
+                        c.attachments.push(part.clone());
+                    }
+                }
+            } else {
+                c.attachments.retain(|part| !c.quote_edit_attachments.contains(part));
+            }
+        }
         c.dirty |= done;
         return Ok(done);
     }

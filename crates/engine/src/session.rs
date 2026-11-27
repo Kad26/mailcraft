@@ -748,6 +748,11 @@ pub struct Compose {
     /// is quoted in the body instead, as text the owner can edit.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub quote: Option<Quote>,
+    /// The original swapped with the quote when undoing an opt-in conversion to editable text.
+    #[serde(skip)]
+    pub(crate) quote_edit_history: Option<Quote>,
+    #[serde(skip)]
+    pub(crate) quote_edit_attachments: Vec<Attachment>,
     pub attachments: Vec<Attachment>,
     pub importance: Importance,
     /// Request a Read Receipt: the message asks for one, to its sender (`compose.readReceipt`).

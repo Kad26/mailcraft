@@ -19,6 +19,9 @@ use super::followup::FollowUpPlan;
 use super::{bad, base64_decode, done, fail, needs_compose, needs_message, source};
 use crate::{BodyFormat, CmdError, CmdResult, CommandSpec, Compose, ComposeMode, InsertedSignature, Quote, Session, p};
 
+mod quote_edit;
+pub(super) use quote_edit::EDIT_QUOTE_TAG;
+
 /// Largest single attachment and most attachments on one message.
 /// The most bytes one attachment may have, and the most the messages forwarded whole together.
 pub const MAX_ATTACHMENT: usize = 64 << 20;
@@ -26,6 +29,14 @@ const MAX_ATTACHMENTS: usize = 200;
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![
+        CommandSpec::new("compose.quoteAsText", "Edit Original", "Message › Editing", quote_edit::edit)
+            .pure()
+            .params("{\"omitUnavailablePictures\"?: bool} — moves the quoted HTML into editable rich text. Keeps supported formatting and inline pictures, simplifies layout; refuses unavailable pictures unless omission is explicitly requested, returning omittedPictures. Oversized originals are refused. Undo restores the original.")
+            .when_writing(quote_edit::enabled),
+        CommandSpec::new("compose.removeQuote", "Remove Original", "Message › Editing", quote_edit::remove)
+            .pure()
+            .params("{} — removes the entire quoted HTML original and its inline pictures, retaining the text being written and ordinary attachments. Undo restores the original.")
+            .when_writing(quote_edit::enabled),
         CommandSpec::new("mail.new", "New Email", "Home › New", new)
             .pure()
             .key("Mod+N")
